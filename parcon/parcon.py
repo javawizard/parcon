@@ -20,57 +20,40 @@ digit_chars = "0123456789"
 whitespace = " \t\r\n"
 
 class Result(object):
-    def __init__(self, end, value, reason):
+    def __init__(self, end, value, expected):
         self.end = end
         self.value = value
-        if not isinstance(reason, (FailureReason, type(None))):
-            raise TypeError("Not a FailureReason or None: " + str(type(reason)))
-        self._reason = reason
+        if not isinstance(expected, list):
+            expected = [expected]
+        self.expected = expected
     
     def __nonzero__(self):
         return self.end is not None
-    
-    @property
-    def reason(self):
-        if not self._reason:
-            raise Exception("Can't get the reason of a result that succeeded")
-        return self._reason
     
     def __str__(self):
         if self:
             return "<Result: %s ending at %s>" % (self.value, self.end)
         else:
-            return "<Result: Failure: %s>" % str(self.reason)
+            return "<Result: Failure: %s>" % str(self.expected)
     
     __repr__ = __str__
 
 
-class FailureReason(object):
-    def __init__(self, position, expected):
-        self.position = position
-        self.expected = flatten(expected)
-    
-    def __repr__(self):
-        return "FailureReason(%s, %s)" % (self.position, self.expected)
-    
-    def __str__(self):
-        return "At position %s: expected one of %s" % (self.position, ", ".join(self.expected))
+def failure(expected):
+    return Result(None, None, expected)
 
 
-def failure(*args):
-    """
-    failure(failure_reason) -> create a failure result from a FailureReason
-    failure(position, expected) -> create a new FailureReason and a
-    result wrapping it
-    """
-    if len(args) == 1:
-        return Result(None, None, args[0])
-    position, expected = args
-    return Result(None, None, FailureReason(position, expected))
+def match(end, value, expected):
+    return Result(end, value, expected)
 
 
-def match(end, value):
-    return Result(end, value, None)
+def format_failure(expected):
+    if len(expected) == 0:
+        return "No expectations present"
+    max_position = max(expected, key=lambda (position, expectation): position)[0]
+    expectations = filter(lambda (position, expectation): position == max_position, expected)
+    expectations = [expectation for (position, expectation) in expectations]
+    return "At position %s: expected one of %s" % (max_position, ", ".join(expectations))
 
 
 def parse_space(text, position, space):
@@ -127,6 +110,19 @@ class Parser(object):
     def parse(self, text, position, space):
         raise Exception("Parse not implemented for " + str(type(self)))
     
+    def parseString(self, string, all=True, whitespace=None):
+        if whitespace is None:
+            whitespace = Whitespace()
+        result = self.parse(string, 0, whitespace)
+        if result and (result.end == len(string) or not all):
+            # Result matched, and either the entire string was parsed or we're
+            # not trying to parse the entire string.
+            return result.value
+        else:
+            raise Exception("Parse failure: " + format_failure(result.expected))
+        return result.value
+            
+    
     def __add__(self, other):
         return op_add(self, other)
     
@@ -160,7 +156,7 @@ class Invalid(Parser):
     A parser that never matches any input and always fails.
     """
     def parse(self, text, position, space):
-        return failure(position, "EOF")
+        return failure((position, "EOF"))
 
 
 class Literal(Parser):
@@ -174,9 +170,9 @@ class Literal(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), None)
+            return match(position + len(self.text), None, [(position+len(self.text), "EOF")])
         else:
-            return failure(position, '"' + self.text + '"')
+            return failure((position, '"' + self.text + '"'))
 
 
 class SignificantLiteral(Literal):
@@ -187,11 +183,11 @@ class SignificantLiteral(Literal):
     None.
     """
     def parse(self, text, position, space):
-        result = Literal.parse(self, text, position, space)
-        if result:
-            return match(result.end, self.text)
+        position = parse_space(text, position, space)
+        if text[position:position + len(self.text)] == self.text:
+            return match(position + len(self.text), self.text, [(position+len(self.text), "EOF")])
         else:
-            return failure(position, '"' + self.text + '"')
+            return failure((position, '"' + self.text + '"'))
 
 
 class CharIn(Parser):
@@ -206,9 +202,9 @@ class CharIn(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1] and text[position:position + 1] in self.chars:
-            return match(position + 1, text[position])
+            return match(position + 1, text[position], [(position+1, "EOF")])
         else:
-            return failure(position, 'any char in "' + self.chars + '"')
+            return failure([(position, 'any char in "' + self.chars + '"')])
 
 
 class Digit(CharIn):
@@ -267,9 +263,9 @@ class AnyChar(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1]: # At least one char left
-            return match(position + 1, text[position])
+            return match(position + 1, text[position], [(position+1, "EOF")])
         else:
-            return failure(position, "any char")
+            return failure([(position, "any char")])
 
 
 class Except(Parser):
@@ -288,10 +284,10 @@ class Except(Parser):
         # May want to parse space to make sure the two parsers are in sync
         result = self.parser.parse(text, position, space)
         if not result:
-            return failure(result.reason)
+            return failure(result.expected)
         avoidResult = self.avoidParser.parse(text, position, space)
         if avoidResult:
-            return failure(position, "(TBD: Except)")
+            return failure([(position, "(TBD: Except)")])
         return result
 
 
@@ -312,7 +308,7 @@ class ZeroOrMore(Parser):
             result.append(parserResult.value)
             position = parserResult.end
             parserResult = self.parser.parse(text, position, space)
-        return match(position, result)
+        return match(position, result, parserResult.expected)
 
 
 class OneOrMore(Parser):
@@ -331,8 +327,8 @@ class OneOrMore(Parser):
             position = parserResult.end
             parserResult = self.parser.parse(text, position, space)
         if len(result) == 0:
-            return failure(parserResult.reason)
-        return match(position, result)
+            return failure(parserResult.expected)
+        return match(position, result, parserResult.expected)
 
 
 class Then(Parser):
@@ -356,25 +352,25 @@ class Then(Parser):
     def parse(self, text, position, space):
         firstResult = self.first.parse(text, position, space)
         if not firstResult:
-            return failure(firstResult.reason)
+            return failure(firstResult.expected)
         position = firstResult.end
         secondResult = self.second.parse(text, position, space)
         if not secondResult:
-            return failure(secondResult.reason)
+            return failure(firstResult.expected + secondResult.expected)
         position = secondResult.end
         a, b = firstResult.value, secondResult.value
         if a is None:
-            return match(position, b)
+            return match(position, b, secondResult.expected)
         elif b is None:
-            return match(position, a)
+            return match(position, a, secondResult.expected)
         if isinstance(a, tuple) and isinstance(b, tuple):
-            return match(position, a + b)
+            return match(position, a + b, secondResult.expected)
         elif isinstance(a, tuple):
-            return match(position, a + (b,))
+            return match(position, a + (b,), secondResult.expected)
         elif isinstance(b, tuple):
-            return match(position, (a,) + b)
+            return match(position, (a,) + b, secondResult.expected)
         else:
-            return match(position, (a, b))
+            return match(position, (a, b), secondResult.expected)
 
 
 class Discard(Parser):
@@ -389,9 +385,9 @@ class Discard(Parser):
     def parse(self, text, position, space):
         result = self.parser.parse(text, position, space)
         if result:
-            return match(result.end, None)
+            return match(result.end, None, result.expected)
         else:
-            return failure(result.reason)
+            return failure(result.expected)
 
 
 class First(Parser):
@@ -403,14 +399,14 @@ class First(Parser):
         self.parsers = parsers
     
     def parse(self, text, position, space):
-        errorReasons = []
+        expectedForErrors = []
         for parser in self.parsers:
             result = parser.parse(text, position, space)
             if result:
                 return result
             else:
-                errorReasons.append(result.reason)
-        return failure(position, flatten([reason.expected for reason in errorReasons]))
+                expectedForErrors += result.expected
+        return failure(expectedForErrors)
 
 
 class Translate(Parser):
@@ -427,8 +423,8 @@ class Translate(Parser):
     def parse(self, text, position, space):
         result = self.parser.parse(text, position, space)
         if not result:
-            return failure(result.reason)
-        return match(result.end, self.function(result.value))
+            return failure(result.expected)
+        return match(result.end, self.function(result.value), result.expected)
 
 
 class Exact(Parser):
@@ -459,7 +455,7 @@ class Optional(Parser):
         if result:
             return result
         else:
-            return match(position, None)
+            return match(position, None, result.expected)
 
 class Repeat(Parser):
     """
@@ -483,11 +479,8 @@ class Repeat(Parser):
             position = parse_result.end
             result.append(parse_result.value)
         if self.min and len(result) < self.min:
-            if parse_result:
-                return failure(parse_result.reason)
-            else:
-                return failure(position, "(TBD: Repeat)")
-        return match(position, result)
+            return failure(parse_result.expected)
+        return match(position, result, parse_result.expected)
 
 
 class Keyword(Parser):
@@ -498,7 +491,7 @@ class Keyword(Parser):
     specified.
     """
     def __init__(self, parser, terminator=None):
-        self.parser = parser
+        self.parser = promote(parser)
         self.terminator = promote(terminator)
     
     def parse(self, text, position, space):
@@ -508,10 +501,10 @@ class Keyword(Parser):
             terminator = space
         result = self.parser.parse(text, position, space)
         if not result:
-            return failure(result.reason)
+            return failure(result.expected)
         terminatorResult = terminator.parse(text, result.end, space)
         if not terminatorResult:
-            return failure(terminatorResult.reason)
+            return failure(terminatorResult.expected)
         return result
 
 

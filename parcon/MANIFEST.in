@@ -1,0 +1,2 @@
+include parcon.py README.txt setup.py
+recursive-include docs *
