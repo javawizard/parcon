@@ -10,6 +10,30 @@ General Public License.
 
 (I wrote the initial version of this thing in three hours, which goes to show
 the power and simplicity of combinatorial parsing.)
+
+To get started, look at all of the subclasses of the Parser class, and
+specifically, look at Parser's parseString method. And perhaps try running this:
+
+parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
+print parser.parseString("(abbaabaab)")
+print parser.parseString("(a)")
+print parser.parseString("")
+print parser.parseString("(a")
+print parser.parseString("(ababacababa)")
+
+The Parser class, and hence all of its subclasses, overload a few operators
+that can be used to make writing parsers easier. Here's what each operator
+ends up translating to:
+
+x + y is the same as Then(x, y).
+x | y is the same as First(x, y).
+-x is the same as Optional(x).
++x is the same as OneOrMore(x).
+x - y is the same as Except(x, y).
+x[min:max] is the same as Repeat(x, min, max).
+x[function] is the same as Translate(x, function).
+"x" op some_parser or some_parser op "x" is the same as Literal("x") op 
+       some_parser or some_parser op Literal("x"), respectively.
 """
 
 import itertools
@@ -20,6 +44,12 @@ digit_chars = "0123456789"
 whitespace = " \t\r\n"
 
 class Result(object):
+    """
+    A result from a parser. Parcon users usually won't have any use for
+    instances of this class since it's primarily used internally by Parcon, but
+    if you're implementing your own Parser subclass, then you'll likely find
+    this class useful since you'll be returning instances of it.
+    """
     def __init__(self, end, value, expected):
         self.end = end
         self.value = value
@@ -40,14 +70,37 @@ class Result(object):
 
 
 def failure(expected):
+    """
+    Returns a Result representing a failure of a parser to match. expected is
+    a list of expectations that would have had to be satisfied in the text
+    passed to the parser calling this method in order for it to potentially
+    succeed. Expectations are 2-tuples of the position at which some particular
+    piece of text was expected and a string describing the text, such as
+    'any char' or '"literal-text"'.
+    """
     return Result(None, None, expected)
 
 
 def match(end, value, expected):
+    """
+    Returns a Result representing a parser successfully matching. end is the
+    position in the string just after where the parser finished, or rather,
+    where the next parser after this one would be expected to start parsing.
+    value is the value that this parser resulted in, which is typically
+    specific to the parser calling this function. expected is a list of
+    expectations that would have allowed this parser to match more input than
+    it did; this parameter takes the same format as its corresponding parameter
+    to the failure function.
+    """
     return Result(end, value, expected)
 
 
 def format_failure(expected):
+    """
+    Formats a list of expectations into a failure message of the form:
+    
+    At position n: expected one of x, y, z
+    """
     if len(expected) == 0:
         return "No expectations present"
     max_position = max(expected, key=lambda (position, expectation): position)[0]
@@ -57,6 +110,12 @@ def format_failure(expected):
 
 
 def parse_space(text, position, space):
+    """
+    Repeatedly applies the specified whitespace parser to the specified text
+    starting at the specified position until it no longer matches. The result
+    of all of these parses will be discarded, and the location at which the
+    whitespace parser failed will be returned.
+    """
     result = space.parse(text, position, Invalid())
     while result:
         position = result.end
@@ -65,6 +124,11 @@ def parse_space(text, position, space):
 
 
 def promote(value):
+    """
+    Converts a value of some type to an appropriate parser. Right now, this
+    returns the value as is if it's an instance of Parser, or Literal(value) if
+    the value is a string.
+    """
     if isinstance(value, Parser):
         return value
     if isinstance(value, basestring):
@@ -107,10 +171,31 @@ def op_getitem(parser, function):
 
 
 class Parser(object):
+    """
+    A parser. This class cannot itself be instantiated; you can only use one of
+    its subclasses. Most classes in this module are Parser subclasses.
+    
+    The method you'll typically use on Parser objects is parseString.
+    """
     def parse(self, text, position, space):
         raise Exception("Parse not implemented for " + str(type(self)))
     
     def parseString(self, string, all=True, whitespace=None):
+        """
+        Parses a string using this parser and returns the result, or throws an
+        exception if the parser does not match. If all is True (the default),
+        an exception will be thrown if this parser does not match all of the
+        input. Otherwise, if the parser only matches a portion of the input
+        starting at the beginning, just that portion will be returned.
+        
+        whitespace is the whitespace parser to use; this parser will be applied
+        (and its results discarded) between matching every other parser while
+        attempting to parse the specified string. A typical grammar might have
+        this parser represent whitespace and comments. An instance of Exact can
+        be used to suppress whitespace parsing for a portion of the grammar,
+        which you would most likely use in, for example, string literals. The
+        default value for this parameter is Whitespace().
+        """
         if whitespace is None:
             whitespace = Whitespace()
         result = self.parse(string, 0, whitespace)
@@ -163,6 +248,8 @@ class Literal(Parser):
     """
     A parser that matches the specified literal piece of text. It succeeds
     only if that piece of text is found, and it returns None when it succeeds.
+    If you need the return value to be the literal piece of text, you should
+    probably use SignificantLiteral instead.
     """
     def __init__(self, text):
         self.text = text
@@ -274,7 +361,8 @@ class Except(Parser):
     and returns, as long as the specified avoidParser does not also match at
     the same location. For example, Except(AnyChar(), Literal("*/")) would
     match any character as long as that character was not a * followed
-    immediately by a / character. 
+    immediately by a / character. This would most likely be useful in, for
+    example, a parser designed to parse C-style comments.
     """
     def __init__(self, parser, avoidParser):
         self.parser = parser
@@ -314,7 +402,7 @@ class ZeroOrMore(Parser):
 class OneOrMore(Parser):
     """
     Same as ZeroOrMore, but requires that the specified parser match at least
-    once.
+    once. If it does not, this parser will fail.
     """
     def __init__(self, parser):
         self.parser = parser
@@ -335,7 +423,7 @@ class Then(Parser):
     """
     A parser that matches the first specified parser followed by the second.
     If neither of them matches, or if only one of them matches, this parser
-    fails. If both of them match, the result is as followes, assming A and B
+    fails. If both of them match, the result is as follows, assuming A and B
     are the results of the first and the second parser, respectively:
     
     If A is None, the result is B.
@@ -377,7 +465,9 @@ class Discard(Parser):
     """
     A parser that matches if the parser it's constructed with matches. It
     consumes the same amount of input that the specified parser does, but this
-    parser always returns None as the result.
+    parser always returns None as the result. Since instances of Then treat
+    None values specially, you'll likely use this parser in conjunction with
+    Then in some grammars.
     """
     def __init__(self, parser):
         self.parser = parser
@@ -415,6 +505,17 @@ class Translate(Parser):
     parser matches successfully, through a function, and the function's return
     value is then used as the result. The function is not called if the
     specified parser fails.
+    
+    For example, the following parser would use the flatten function provided
+    by parcon to flatten any lists and tuples produced by the parser
+    example_parser:
+    
+    Translate(example_parser, flatten)
+    
+    The following parser would likewise expect another_parser to produce a list
+    of strings and concatenate them together into a single result string:
+    
+    Translate(another_parser, "".join)
     """
     def __init__(self, parser, function):
         self.parser = parser
@@ -463,6 +564,11 @@ class Repeat(Parser):
     the underlying parser did not match at least min times, this parser fails.
     This parser stops parsing after max times, even if the underlying parser
     would still match. The results of all of the parses are returned as a list.
+    
+    If max is None, no maximum limit will be enforced. The same goes for min.
+    
+    Repeat(parser, 0, None) is the same as ZeroOrMore(parser), and
+    Repeat(parser, 1, None) is the same as OneOrMore(parser).
     """
     def __init__(self, parser, min, max):
         self.parser = parser
@@ -564,6 +670,10 @@ def flatten(value):
     
     If a single non-list, non-tuple value is passed in, the result is a list
     containing just that item.
+    
+    This function is intended to be used as the function passed to Translate
+    where the parser passed to Translate could produce multiple nested lists of
+    tuples and lists, and a single, flat, list is desired.
     """
     if not isinstance(value, (list, tuple)):
         return [value]

@@ -1,5 +1,7 @@
 Parcon is a parser combinator library. It's designed to be easy to use, easy to learn, and to provide informative error messages.
 
+**Pydoc documentation for Parcon** is available [here](parcon.html).
+
 # Introduction
 
 *One important note here: for the rest of the documentation, we'll assume that you've run the following Python statement:*
