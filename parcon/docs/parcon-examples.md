@@ -1,4 +1,5 @@
-This file contains a bunch of examples of things you can do with Parcon.
+This file contains a bunch of examples of things you can do with Parcon. More
+examples are present in the [Parcon module documentation](parcon.html).
 
 ## Expression evaluator
 

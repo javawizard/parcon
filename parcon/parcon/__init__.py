@@ -50,6 +50,27 @@ print expr.parseString("3*4") # prints 12
 print expr.parseString("5+3*4") # prints 17
 print expr.parseString("(5+3)*4") # prints 32
 print expr.parseString("10/4") # prints 2.5
+
+Another example use of Parcon, this one being a JSON parser (essentially
+a reimplementation of Python's json.dumps, without all of the fancy
+arguments that it supports, and currently without support for backslash
+escapes in JSON string literals):
+
+from parcon import *
+import operator
+cat_dicts = lambda x, y: dict(x.items() + y.items())
+json = Forward()
+number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][float]
+boolean = Literal("true")[lambda x: True] | Literal("false")[lambda x: False]
+string = ('"' + Exact(ZeroOrMore(AnyChar() - CharIn('\\"'))) +  '"')["".join]
+null = Literal("null")[lambda x: None]
+pair = (string + ":" + json[lambda x: (x,)])[lambda x: {x[0]: x[1]}]
+json_object = ("{" + Optional(InfixExpr(pair, [(",", cat_dicts)]), {}) + "}")
+json_list = ("[" + Optional(InfixExpr(json[lambda x: [x]], [(",", operator.add)]), []) + "]")
+json << (json_object | json_list | string | boolean | null | number)
+
+Thereafter, json.parseString(text) can be used as a replacement for
+Python's json.dumps.
 """
 
 # Parcon is Copyright 2011 Alexander Boyd. Released under the
@@ -253,6 +274,9 @@ class Parser(object):
     
     def __neg__(self):
         return op_neg(self)
+    
+    def __str__(self):
+        return self.__repr__()
 
 
 class Invalid(Parser):
@@ -580,17 +604,19 @@ class Exact(Parser):
 class Optional(Parser):
     """
     A parser that returns whatever its underlying parser returns, except that
-    if the specified parser fails, this parser succeeds and returns None.
+    if the specified parser fails, this parser succeeds and returns the default
+    result specified to it (which, itself, defaults to None).
     """
-    def __init__(self, parser):
+    def __init__(self, parser, default=None):
         self.parser = parser
+        self.default = default
     
     def parse(self, text, position, space):
         result = self.parser.parse(text, position, space)
         if result:
             return result
         else:
-            return match(position, None, result.expected)
+            return match(position, self.default, result.expected)
 
 class Repeat(Parser):
     """

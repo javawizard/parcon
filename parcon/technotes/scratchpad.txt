@@ -1,0 +1,16 @@
+
+
+A JSON parser:
+
+from parcon import *
+import operator
+cat_dicts = lambda x, y: dict(x.items() + y.items())
+json = Forward()
+number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][float]
+boolean = Literal("true")[lambda x: True] | Literal("false")[lambda x: False]
+string = ('"' + Exact(ZeroOrMore(AnyChar() - CharIn('\\"'))) +  '"')["".join]
+null = Literal("null")[lambda x: None]
+pair = (string + ":" + json[lambda x: (x,)])[lambda x: {x[0]: x[1]}]
+json_object = ("{" + Optional(InfixExpr(pair, [(",", cat_dicts)]), {}) + "}")
+json_list = ("[" + Optional(InfixExpr(json[lambda x: [x]], [(",", operator.add)]), []) + "]")
+json << (json_object | json_list | string | boolean | null | number)
