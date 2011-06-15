@@ -3,14 +3,6 @@ parcon.py
 
 Parcon is a parser combinator library written by Alexander Boyd.
 
-Copyright 2011 Alexander Boyd. Released under the terms of the GNU Lesser
-General Public License. 
-
-2011.05.31
-
-(I wrote the initial version of this thing in three hours, which goes to
-show the power and simplicity of combinatorial parsing.)
-
 To get started, look at all of the subclasses of the Parser class, and
 specifically, look at Parser's parseString method. And perhaps try
 running this:
@@ -18,9 +10,9 @@ running this:
 parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
 print parser.parseString("(abbaabaab)")
 print parser.parseString("(a)")
-print parser.parseString("")
-print parser.parseString("(a")
-print parser.parseString("(ababacababa)")
+print parser.parseString("") # should raise an exception
+print parser.parseString("(a") # should raise an exception
+print parser.parseString("(ababacababa)") # should raise an exception
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -59,6 +51,9 @@ print expr.parseString("5+3*4") # prints 17
 print expr.parseString("(5+3)*4") # prints 32
 print expr.parseString("10/4") # prints 2.5
 """
+
+# Parcon is Copyright 2011 Alexander Boyd. Released under the
+# terms of the GNU Lesser General Public License.
 
 import itertools
 
@@ -126,7 +121,7 @@ def format_failure(expected):
     At position n: expected one of x, y, z
     """
     if len(expected) == 0:
-        return "No expectations present"
+        return "(No expectations present, so an error message can't be constructed)"
     max_position = max(expected, key=lambda (position, expectation): position)[0]
     expectations = filter(lambda (position, expectation): position == max_position, expected)
     expectations = [expectation for (position, expectation) in expectations]
@@ -751,6 +746,8 @@ class InfixExpr(Parser):
         while True:
             found_op = False
             ops_expected = []
+            # Add the expectations for the last component
+            ops_expected += component_result.expected
             # Try each operator's op parser in sequence
             for op_parser, op_function in self.operators:
                 op_result = op_parser.parse(text, position, space)
