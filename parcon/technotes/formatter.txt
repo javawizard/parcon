@@ -1,0 +1,13 @@
+So, thinking about doing parcon.formatter, and how that would work...
+
+pargen... not a bad name for it
+
+I might do that.
+
+In fact, I just did. It's now parcon.pargen.
+
+So...
+
+With parcon, a parser is handed an input string, the position at which to begin parsing, and optionally a space parser. The result is either failure or success with a result value and position at which parsing finished. (I'm deliberately omitting discussion of result expectations since such a concept would be too difficult to reproduce in pargen; it will, however, have some ability to generate an error message as to why a particular formatter failed.)
+
+With 

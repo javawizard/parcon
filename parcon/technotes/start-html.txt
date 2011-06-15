@@ -1,5 +1,5 @@
 <html><head>
-<meta http-equiv="refresh" content="0;url=parcon-tutorial.html"/>
+
 <script type="text/javascript">
 
   var _gaq = _gaq || [];
@@ -19,6 +19,5 @@
 // END JCP ADD
 
 </script>
+
 </head><body>
-<a href="parcon-tutorial.html">parcon-tutorial.html</a>
-</body></html>

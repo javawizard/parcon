@@ -2,11 +2,11 @@ from distutils.core import setup
 
 setup(
     name="parcon",
-    version="0.1.6",
+    version="0.1.7",
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
-    description="A parser combinator library that's easy to use and that provides informative error messages.",
+    description="A parser combinator library (and soon-to-be formatter combinator library as well) that's easy to use and that provides informative error messages.",
     long_description=
 """
 """,

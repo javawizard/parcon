@@ -620,7 +620,7 @@ class Exact(Parser):
     demonstrates the problem:
     
     stringLiteral = '"' + ZeroOrMore(AnyChar() - '"') + '"'
-    result stringLiteral.parseString('"Hello, great big round world"')
+    result = stringLiteral.parseString('"Hello, great big round world"')
     
     After running that, result would have the value "Hello,greatbigroundworld".
     This is because the whitespace parser (which defaults to Whitespace())
@@ -628,7 +628,7 @@ class Exact(Parser):
     rewritten using Exact to mitigate this problem:
 
     stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"')) + '"'
-    result stringLiteral.parseString('"Hello, great big round world"')
+    result = stringLiteral.parseString('"Hello, great big round world"')
     
     This parser produces the correct result, 'Hello, great big round world'.
     """
@@ -860,6 +860,52 @@ class InfixExpr(Parser):
     
     def __repr__(self):
         return "InfixExpr(%s, %s)" % (repr(self.component), repr(self.operators))
+
+
+class Bind(Parser):
+    """
+    A parser that functions similar to Then, but that allows the second parser
+    to be determined from the value that the first parser produced. It's
+    constructed as Bind(parser, function). parser is the first parser to run.
+    function is a function that accepts one argument, the value that the first
+    parser produced. It will be called whenever the first parser succeeds; the
+    value that the first parser produced will be passed in, and the function
+    should return a second parser. This parser will then be applied immediately
+    after where the first parser finished parsing from (similar to how Then
+    starts its second parser parsing after where its first parser finished).
+    Bind then returns the value that the second parser produced.
+    
+    Those of you familiar with functional programming will notice that this
+    parser implements a monadic bind, hence its name.
+    """
+    def __init__(self, parser, function):
+        self.parser = parser
+        self.function = function
+    
+    def parse(self, text, position, whitespace):
+        first_result = self.parser.parse(text, position, whitespace)
+        if not first_result:
+            return failure(first_result.expected)
+        second_parser = self.function(first_result.value)
+        second_result = second_parser.parse(text, first_result.end, whitespace)
+        if not second_result:
+            return failure(second_result.expected + first_result.expected)
+        return match(second_result.end, second_result.value, second_result.expected)
+
+
+class Return(Parser):
+    """
+    A parser that always succeeds, consumes no input, and always returns a
+    value specified when the Return instance is constructed.
+    
+    Those of you familiar with functional programming will notice that this
+    parser implements a monadic return, hence its name.
+    """
+    def __init__(self, value):
+        self.value = value
+    
+    def parse(self, text, position, whitespace):
+        return match(position, self.value, [(position, "EOF")])
 
 
 def flatten(value):
