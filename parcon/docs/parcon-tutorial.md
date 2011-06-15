@@ -2,6 +2,8 @@ Parcon is a parser combinator library. It's designed to be easy to use, easy to 
 
 **Pydoc documentation for Parcon** is available [here](parcon.html).
 
+**Some example Parcon grammars** (along with explanations of what they do) are available [here](parcon-examples.html). 
+
 # Introduction
 
 *One important note here: for the rest of the documentation, we'll assume that you've run the following Python statement:*

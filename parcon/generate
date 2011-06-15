@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd docs
+pandoc -o parcon-tutorial.html parcon-tutorial.md
+pandoc -o parcon-examples.html parcon-examples.md
+PYTHONPATH=.. pydoc -w parcon
+cd .. 

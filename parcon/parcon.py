@@ -1,18 +1,19 @@
 """
 parcon.py
 
-Parser combinator library written by Alexander Boyd.
+Parcon is a parser combinator library written by Alexander Boyd.
 
 Copyright 2011 Alexander Boyd. Released under the terms of the GNU Lesser
 General Public License. 
 
 2011.05.31
 
-(I wrote the initial version of this thing in three hours, which goes to show
-the power and simplicity of combinatorial parsing.)
+(I wrote the initial version of this thing in three hours, which goes to
+show the power and simplicity of combinatorial parsing.)
 
 To get started, look at all of the subclasses of the Parser class, and
-specifically, look at Parser's parseString method. And perhaps try running this:
+specifically, look at Parser's parseString method. And perhaps try
+running this:
 
 parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
 print parser.parseString("(abbaabaab)")
@@ -34,6 +35,29 @@ x[min:max] is the same as Repeat(x, min, max).
 x[function] is the same as Translate(x, function).
 "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
        some_parser or some_parser op Literal("x"), respectively.
+
+A simple expression evaluator written using Parcon:
+
+from parcon import *
+from decimal import Decimal
+import operator
+expr = Forward()
+number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][Decimal]
+term = number | "(" + expr + ")"
+term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
+term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
+expr << term
+
+Some example expressions that can now be evaluated using the above
+simple expression evaluator:
+
+print expr.parseString("1+2") # prints 3
+print expr.parseString("1+2+3") # prints 6
+print expr.parseString("1+2+3+4") # prints 10
+print expr.parseString("3*4") # prints 12
+print expr.parseString("5+3*4") # prints 17
+print expr.parseString("(5+3)*4") # prints 32
+print expr.parseString("10/4") # prints 2.5
 """
 
 import itertools
@@ -534,6 +558,21 @@ class Exact(Parser):
     will be passed as the whitespace parser to the specified parser when its
     parse method is called. This allows for sections of the grammar to take
     whitespace significantly, which is useful in, for example, string literals.
+    For example, the following parser, intended to parse string literals,
+    demonstrates the problem:
+    
+    stringLiteral = '"' + ZeroOrMore(AnyChar() - '"') + '"'
+    result stringLiteral.parseString('"Hello, great big round world"')
+    
+    After running that, result would have the value "Hello,greatbigroundworld".
+    This is because the whitespace parser (which defaults to Whitespace())
+    consumed all of the space in the string literal. This can, however, be
+    rewritten using Exact to mitigate this problem:
+
+    stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"')) + '"'
+    result stringLiteral.parseString('"Hello, great big round world"')
+    
+    This parser produces the correct result, 'Hello, great big round world'.
     """
     def __init__(self, parser):
         self.parser = parser
@@ -661,6 +700,85 @@ class Forward(Parser):
         self.parser = parser
     
     __lshift__ = set
+
+
+class InfixExpr(Parser):
+    """
+    A parser that's created with a component parser and a series of operator
+    parsers, which can be literal strings (and will be translated to Literal
+    instances), and two-argument functions for each of these operator parsers.
+    It parses expressions of the form "component" or "component op component"
+    or "component op component op component" etc. For each op it encounters in
+    the result it parses, it calls the two-arg function supplied with that
+    operator, passing in the value of the parser on its left and the value of
+    the parser on its right. It then stores the result, and moves onto the next
+    operator, this time using the aforementioned result as the left-hand value
+    for the next operator.
+    
+    This reduction of values proceeds from left to right, which makes InfixExpr
+    implement a left-associative infix grammar. In the future, there will be a
+    way to specify that certain operators should be right-associative instead.
+    
+    If only a single component is present, InfixExpr will match that and return
+    whatever the component resulted in. If not even a single component is
+    present, InfixExpr will fail to match.
+    """
+    def __init__(self, component_parser, operators):
+        """
+        Creates an InfixExpr. component_parser is the parser that will parse
+        the individual components of the expression. operators is a list of
+        2-tuples; each tuple represents an operator, with the first item in the
+        tuple being a parser that parses the operator itself (or a literal
+        string, such as "+", "-", etc, which will be wrapped with a Literal
+        instance) and the second item being a two-arg function that will be
+        used to reduce components on either side of the operator to get a
+        result.
+        """
+        self.component = component_parser
+        if len(operators) == 0:
+            raise Exception("InfixExpr must be created with at least one operator")
+        self.operators = [(promote(op), function) for op, function in operators]
+    
+    def parse(self, text, position, space):
+        # Parse the first component
+        component_result = self.component.parse(text, position, space)
+        if not component_result:
+            return failure(component_result.expected)
+        # Set up initial values from the first component
+        value = component_result.value
+        position = component_result.end
+        # Now try to parse the rest of the "op component" pairs
+        while True:
+            found_op = False
+            ops_expected = []
+            # Try each operator's op parser in sequence
+            for op_parser, op_function in self.operators:
+                op_result = op_parser.parse(text, position, space)
+                if op_result:
+                    # This operator matched, so we break out of our loop
+                    found_op = True
+                    break
+                else:
+                    # This operator didn't match, so we add its failure
+                    # expectations to the list and move on to the next operator
+                    ops_expected += op_result.expected
+            if not found_op: # No more operators, so we return the current value
+                return match(position, value, ops_expected)
+            # We have an operator. Now we set the new position and try to parse
+            # a component following it.
+            component_result = self.component.parse(text, op_result.end, space)
+            if not component_result:
+                # Component didn't match, so we return the current value, along
+                # with the component's expectation and the expectations of the
+                # operator that matched
+                return match(position, value, component_result.expected + op_result.expected)
+            # Component did match, so we set the position to the end of where
+            # the component matched to, get the component's value, and reduce
+            # it with the current value using the op function
+            position = component_result.end
+            value = op_function(value, component_result.value)
+            # and then we start the whole thing over again, trying to parse
+            # another operator.
 
 
 def flatten(value):
