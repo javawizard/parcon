@@ -285,6 +285,9 @@ class Invalid(Parser):
     """
     def parse(self, text, position, space):
         return failure((position, "EOF"))
+    
+    def __repr__(self):
+        return "Invalid()"
 
 
 class Literal(Parser):
@@ -303,6 +306,9 @@ class Literal(Parser):
             return match(position + len(self.text), None, [(position+len(self.text), "EOF")])
         else:
             return failure((position, '"' + self.text + '"'))
+    
+    def __repr__(self):
+        return "Literal(%s)" % repr(self.text)
 
 
 class SignificantLiteral(Literal):
@@ -318,6 +324,9 @@ class SignificantLiteral(Literal):
             return match(position + len(self.text), self.text, [(position+len(self.text), "EOF")])
         else:
             return failure((position, '"' + self.text + '"'))
+    
+    def __repr__(self):
+        return "SignificantLiteral(%s)" % repr(self.text)
 
 
 class CharIn(Parser):
@@ -335,6 +344,9 @@ class CharIn(Parser):
             return match(position + 1, text[position], [(position+1, "EOF")])
         else:
             return failure([(position, 'any char in "' + self.chars + '"')])
+    
+    def __repr__(self):
+        return "CharIn(" + repr(self.chars) + ")"
 
 
 class Digit(CharIn):
@@ -383,6 +395,9 @@ class Whitespace(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, whitespace)
+    
+    def __repr__(self):
+        return "Whitespace()"
 
 
 class AnyChar(Parser):
@@ -396,6 +411,9 @@ class AnyChar(Parser):
             return match(position + 1, text[position], [(position+1, "EOF")])
         else:
             return failure([(position, "any char")])
+    
+    def __repr__(self):
+        return "AnyChar()"
 
 
 class Except(Parser):
@@ -420,6 +438,9 @@ class Except(Parser):
         if avoidResult:
             return failure([(position, "(TBD: Except)")])
         return result
+    
+    def __repr__(self):
+        return "Except(%s, %s)" % (repr(self.parser), repr(self.avoidParser))
 
 
 class ZeroOrMore(Parser):
@@ -440,6 +461,9 @@ class ZeroOrMore(Parser):
             position = parserResult.end
             parserResult = self.parser.parse(text, position, space)
         return match(position, result, parserResult.expected)
+    
+    def __repr__(self):
+        return "ZeroOrMore(%s)" % repr(self.parser)
 
 
 class OneOrMore(Parser):
@@ -460,6 +484,9 @@ class OneOrMore(Parser):
         if len(result) == 0:
             return failure(parserResult.expected)
         return match(position, result, parserResult.expected)
+    
+    def __repr__(self):
+        return "OneOrMore(%s)" % repr(self.parser)
 
 
 class Then(Parser):
@@ -502,6 +529,9 @@ class Then(Parser):
             return match(position, (a,) + b, secondResult.expected)
         else:
             return match(position, (a, b), secondResult.expected)
+    
+    def __repr__(self):
+        return "Then(%s, %s)" % (repr(self.first), repr(self.second))
 
 
 class Discard(Parser):
@@ -521,6 +551,9 @@ class Discard(Parser):
             return match(result.end, None, result.expected)
         else:
             return failure(result.expected)
+    
+    def __repr__(self):
+        return "Discard(" + repr(self.parser) + ")"
 
 
 class First(Parser):
@@ -540,6 +573,9 @@ class First(Parser):
             else:
                 expectedForErrors += result.expected
         return failure(expectedForErrors)
+    
+    def __repr__(self):
+        return "First(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
 class Translate(Parser):
@@ -569,6 +605,9 @@ class Translate(Parser):
         if not result:
             return failure(result.expected)
         return match(result.end, self.function(result.value), result.expected)
+    
+    def __repr__(self):
+        return "Translate(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
 class Exact(Parser):
@@ -599,6 +638,9 @@ class Exact(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         return self.parser.parse(text, position, Invalid())
+    
+    def __repr__(self):
+        return "Exact(" + repr(self.parser) + ")"
 
 
 class Optional(Parser):
@@ -617,6 +659,9 @@ class Optional(Parser):
             return result
         else:
             return match(position, self.default, result.expected)
+    
+    def __repr__(self):
+        return "Optional(%s, %s)" % (repr(self.parser), repr(self.default))
 
 class Repeat(Parser):
     """
@@ -647,6 +692,9 @@ class Repeat(Parser):
         if self.min and len(result) < self.min:
             return failure(parse_result.expected)
         return match(position, result, parse_result.expected)
+    
+    def __repr__(self):
+        return "Repeat(%s, %s, %s)" % (repr(self.parser), repr(self.min), repr(self.max))
 
 
 class Keyword(Parser):
@@ -658,7 +706,7 @@ class Keyword(Parser):
     """
     def __init__(self, parser, terminator=None):
         self.parser = promote(parser)
-        self.terminator = promote(terminator)
+        self.terminator = promote(terminator) if terminator is not None else None
     
     def parse(self, text, position, space):
         if self.terminator:
@@ -672,6 +720,9 @@ class Keyword(Parser):
         if not terminatorResult:
             return failure(terminatorResult.expected)
         return result
+    
+    def __repr__(self):
+        return "Keyword(%s, %s)" % (repr(self.parser), repr(self.terminator))
 
 
 class Forward(Parser):
@@ -705,6 +756,7 @@ class Forward(Parser):
     """
     def __init__(self):
         self.parser = None
+    
     def parse(self, text, position, space):
         if not self.parser:
             raise Exception("Forward.parse was called before the specified "
@@ -721,6 +773,9 @@ class Forward(Parser):
         self.parser = parser
     
     __lshift__ = set
+    
+    def __repr__(self):
+        return "Forward()"
 
 
 class InfixExpr(Parser):
@@ -802,6 +857,9 @@ class InfixExpr(Parser):
             value = op_function(value, component_result.value)
             # and then we start the whole thing over again, trying to parse
             # another operator.
+    
+    def __repr__(self):
+        return "InfixExpr(%s, %s)" % (repr(self.component), repr(self.operators))
 
 
 def flatten(value):
