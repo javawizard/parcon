@@ -1,2 +1,3 @@
-include parcon.py README.txt setup.py
+include README.txt setup.py
+recursive-include parcon *.py
 recursive-include docs *

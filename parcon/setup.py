@@ -21,5 +21,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Text Processing"
     ],
-    py_modules=["parcon"],
+    packages=["parcon"]
 )
