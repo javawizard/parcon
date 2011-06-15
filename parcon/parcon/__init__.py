@@ -908,6 +908,31 @@ class Return(Parser):
         return match(position, self.value, [(position, "EOF")])
 
 
+class Chars(Parser):
+    """
+    A parser that parses a specific number of characters and returns them as
+    a string. Chars(5), for example, would parse exactly five characters in a
+    row, and return a string of length 5. This would be essentially identical
+    to AnyChar()[5:5]["".join], except for two things: 1, the whitespace parser
+    is not applied in between each character parsed by Chars (although it is
+    applied just before the first character), and 2, Chars is much more
+    efficient than the aforementioned expression using AnyChar.
+    
+    This can be used in combination with Bind to create a parser that parses
+    a binary protocol where a fixed number of bytes are present that specify
+    the length of the rest of a particular packet, followed by the rest of the
+    packet itself. For example, imagine a protocol where packets look like this:
+    
+    length b1 b2 b3 ... blength
+    
+    a.k.a. a byte indicating the length of the data carried in that packet,
+    followed by the actual data of the packet. Such a packet could be parsed
+    into a string containing the data of a single packet with this:
+    
+    Bind(AnyChar(), lambda x: Chars(ord(x)))
+    """
+
+
 def flatten(value):
     """
     A function that recursively flattens the specified value. Tuples and lists
