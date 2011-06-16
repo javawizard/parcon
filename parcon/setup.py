@@ -6,12 +6,18 @@ setup(
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
-    description="A parser combinator library (and soon-to-be formatter combinator library as well) that's easy to use and that provides informative error messages.",
+    description="A parser combinator and formatter combinator library that's easy to use and that provides informative error messages.",
     long_description=
 """
 Parcon is a parser combinator library. It can be used for parsing both normal
 text and binary data. It's designed to be easy to use and to provide informative
 error messages.
+
+Pargen, which is provided as a submodule of Parcon, is a formatter combinator
+library. It's much the opposite of Parcon: while Parcon is used to parse text
+into various objects, Pargen is used to format objects into text. As an
+example, if you wanted to reimplement Python's json module, you would use
+Parcon to implement json.loads and Pargen to implement json.dumps.
 
 All of the classes, and most of the functions, in Parcon are comprehensively
 documented. The best place to look for help is in Parcon's module documentation.
@@ -37,6 +43,9 @@ This expression evaluator can be used thus::
     print expr.parseString("5+3*4") # prints 17
     print expr.parseString("(5+3)*4") # prints 32
     print expr.parseString("10/4") # prints 2.5
+
+Parcon is currently much more comprehensively documented than Pargen is.
+Improved documentation for Pargen will come soon.
 """,
     classifiers=[
         "Programming Language :: Python",
