@@ -1,8 +1,17 @@
 Parcon is a parser combinator library. It's designed to be easy to use, easy to learn, and to provide informative error messages.
 
-**Pydoc documentation for Parcon** is available [here](parcon.html).
+Pargen, which is provided as a submodule of Parcon, is a formatter combinator
+library. It's much the opposite of Parcon: while Parcon is used to parse text
+into various objects, Pargen is used to format objects into text. As an
+example, if you wanted to reimplement Python's json module, you would use
+Parcon to implement json.loads and Pargen to implement json.dumps.
 
-**Some example Parcon grammars** (along with explanations of what they do) are available [here](parcon-examples.html). 
+**Pydoc documentation for Parcon** is available [here](parcon.html), and **Pydoc
+documentation for Pargen** is available [here](parcon.pargen.html).
+
+Some example Parcon grammars (along with explanations of what they do) are available [here](parcon-examples.html).
+Example Pargen grammars are provided in the Pargen pydoc documentation, a link
+to which is provided above.
 
 # Introduction
 
