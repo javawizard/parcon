@@ -223,6 +223,22 @@ class Iterable(StaticType):
         return "Iterable()"
 
 
+class Sequence(StaticType):
+    """
+    A static type that matches a value if the value is a sequence. A value is
+    defined to be a sequence if calling len(value) does not raise a TypeError.
+    """
+    def matches(self, value):
+        try:
+            len(value)
+            return True
+        except TypeError:
+            return False
+    
+    def __str__(self):
+        return "Sequence()"
+
+
 class Everything(StaticType):
     """
     A static type that matches all values.

@@ -10,4 +10,38 @@ So...
 
 With parcon, a parser is handed an input string, the position at which to begin parsing, and optionally a space parser. The result is either failure or success with a result value and position at which parsing finished. (I'm deliberately omitting discussion of result expectations since such a concept would be too difficult to reproduce in pargen; it will, however, have some ability to generate an error message as to why a particular formatter failed.)
 
-With 
+With pargen, a formatter is handed an input object. It either succeeds or fails, similar to a parcon parser. If it fails, it provides an error message as to why it failed (it doesn't provide a corresponding position, since such a notion makes little sense in pargen). If it succeeds, it provides a string (the result), and the data that it did not consume.
+
+That sounds sensible.
+
+So, we have something like:
+
+class Formatter(object):
+	def format(input):
+		pass
+def result(text, remainder):
+	pass
+def fail(message):
+	pass
+
+Now, we have some formatters:
+
+ForEach(formatter): Expects a sequence as input. Iterates over all of its items, applying formatter to each one, then results in the concatenation of the outputs of the formatter.
+
+Delimited(formatter, delimiter): Same as ForEach, but delimiter (a string) will be put in between each result.
+
+Head(formatter): Expects a sequence as input. Gets the first item from the sequence, passes it through formatter, and returns the result, along with a list containing all but the first item in the input sequence as the remainder.
+
+Tail(formatter): Same as Head, but operates on the last item in the sequence instead of the first.
+
+Instance(some_type): Accepts a static type (as specified by the parcon.static module; ordinary Python class objects can thus be passed in). Succeeds, not consuming any input and producing an empty string as output, if the input matches the specified static type. Fails otherwise.
+
+And(formatter1, formatter2): Succeeds only if its first and second formatter both succeed, both operating on the original input given to And. Returns whatever its second formatter returns.
+
+Then(formatter1, formatter2): Applies its first formatter. If it fails, Then fails. Otherwise, applies its second formatter with the remainder of its first formatter. If it fails, Then fails. Otherwise, Then returns the concatenation of the results of its first and second formatters, along with the remainder of its second formatter.
+
+String(): Always succeeds. Returns str(value) for the value that's passed to it, with None as the remainder.
+
+Repr(): Same as String(), but return repr(value) instead of str(value).
+
+

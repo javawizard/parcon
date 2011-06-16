@@ -6,7 +6,8 @@ pandoc -o parcon-examples-temp.html parcon-examples.md
 PYTHONPATH=.. pydoc -w parcon
 cat ../technotes/start-html.txt parcon-tutorial-temp.html ../technotes/end-html.txt > parcon-tutorial.html
 cat ../technotes/start-html.txt parcon-examples-temp.html ../technotes/end-html.txt > parcon-examples.html
-sed -f ../technotes/tracking-sed.txt parcon.html > parcon-new.html
+# sed -f ../technotes/tracking-sed.txt parcon.html > parcon-new.html
+cp parcon.html parcon-new.html
 rm parcon-tutorial-temp.html parcon-examples-temp.html parcon.html
 mv parcon-new.html parcon.html
 cd .. 
