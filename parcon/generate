@@ -1,14 +1,19 @@
 #!/bin/bash
 
 cd docs
+
 pandoc -o parcon-tutorial-temp.html parcon-tutorial.md
 pandoc -o parcon-examples-temp.html parcon-examples.md
-PYTHONPATH=.. pydoc -w parcon
-PYTHONPATH=.. pydoc -w parcon.pargen
 cat ../technotes/start-html.txt parcon-tutorial-temp.html ../technotes/end-html.txt > parcon-tutorial.html
 cat ../technotes/start-html.txt parcon-examples-temp.html ../technotes/end-html.txt > parcon-examples.html
-# sed -f ../technotes/tracking-sed.txt parcon.html > parcon-new.html
-cp parcon.html parcon-new.html
-rm parcon-tutorial-temp.html parcon-examples-temp.html parcon.html
-mv parcon-new.html parcon.html
+rm parcon-tutorial-temp.html parcon-examples-temp.html
+
+for PACKAGE in parcon parcon.pargen parcon.static
+do
+	PYTHONPATH=.. pydoc -w $PACKAGE
+	../technotes/pydoc-analytics.pl ${PACKAGE}.html ${PACKAGE}-new.html
+	rm ${PACKAGE}.html
+	mv ${PACKAGE}-new.html ${PACKAGE}.html
+done
+
 cd .. 
