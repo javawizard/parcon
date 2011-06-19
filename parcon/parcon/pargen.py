@@ -21,6 +21,14 @@ You can then do things like:
 [true, 1, {"2": 3, "4": null}, 5, null, false, "hello"]
 """
 
+"""
+TODO: write something that can convert a number into its textual representation,
+so like the opposite of the number parser example, and then write something that
+can format a list of items into, say, "first", "first or second", "first, second, or third", etc, meaning
+that it converts a list of items into an english language phrase describing that set properly. Also add
+things for extracting keys from maps.
+"""
+
 from parcon import static
 
 sequence_type = static.Sequence()

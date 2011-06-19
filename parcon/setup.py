@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="parcon",
-    version="0.1.11",
+    version="0.1.15",
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
@@ -36,13 +36,16 @@ Here's an example of a simple expression evaluator written using Parcon::
 
 This expression evaluator can be used thus::
 
-    print expr.parseString("1+2") # prints 3
-    print expr.parseString("1+2+3") # prints 6
-    print expr.parseString("1+2+3+4") # prints 10
-    print expr.parseString("3*4") # prints 12
-    print expr.parseString("5+3*4") # prints 17
-    print expr.parseString("(5+3)*4") # prints 32
-    print expr.parseString("10/4") # prints 2.5
+    print expr.parse_string("1+2") # prints 3
+    print expr.parse_string("1+2+3") # prints 6
+    print expr.parse_string("1+2+3+4") # prints 10
+    print expr.parse_string("3*4") # prints 12
+    print expr.parse_string("5+3*4") # prints 17
+    print expr.parse_string("(5+3)*4") # prints 32
+    print expr.parse_string("10/4") # prints 2.5
+
+I've written some posts on `my blog <http://me.opengroove.org/>`_ providing
+more Parcon examples.
 
 Parcon is currently much more comprehensively documented than Pargen is.
 Improved documentation for Pargen will come soon.

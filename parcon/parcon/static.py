@@ -38,23 +38,53 @@ particular compiler production.
 """
 
 class StaticTypeError(Exception):
+    """
+    An exception thrown when an object passed to check_matches does not match
+    the specified static type.
+    """
     pass
 
 
 class TypeFormatError(Exception):
+    """
+    An exception thrown when a static type is malformed. This could happen if,
+    for example, the number 5 was passed to the compile function; 5 is
+    obviously not a valid static type, so a TypeFormatError would be raised.
+    """
     pass
 
 
 class InternalError(Exception):
+    """
+    An exception thrown when an internal problem occurs with the static type
+    library. This usually indicates a bug in this library.
+    """
     pass
 
 
 class StaticType(object):
+    """
+    The class that all static types extend from. It has two useful methods:
+    matches and check_matches.
+    
+    StaticType cannot itself be instantiated; you can only construct instances
+    of subclasses of StaticType.
+    """
     def matches(self, value):
+        """
+        Checks to see if the specified object matches this static type. If it
+        does, True will be returned, and False will be returned if it doesn't.
+        Subclasses of StaticType must override this to perform the actual
+        matching; StaticType's implementation throws an InternalError.
+        """
         raise InternalError("StaticType subclass " + str(type(self)) + 
                 " doesn't implement the matches function")
     
     def check_matches(self, value):
+        """
+        Calls self.matches(value). If the reslt is false, a StaticTypeError is
+        raised. If the result is true, this method simply returns.
+        """
         if not self.matches(value):
             raise StaticTypeError("Value " + str(value) + " is not of type " + 
             str(self));
@@ -254,6 +284,15 @@ class Everything(StaticType):
 
 
 def compile(short_type):
+    """
+    Compiles the specified static type. This involves converting Python classes
+    to instances of Type, tuples to instances of Or, and lists to instances of
+    All. Instances of one of StaticType's subclasses are returned as-is, so
+    this function doesn't need to be called on them.
+    
+    This function is essentially analogous to Parcon and Pargen's promote
+    functions.
+    """
     if isinstance(short_type, StaticType): # Already compiled
         return short_type;
     if isinstance(short_type, list):
@@ -272,8 +311,14 @@ def compile(short_type):
 
 
 def matches(value, type):
+    """
+    Short for compile(type).matches(value).
+    """
     return compile(type).matches(value)
 
 
+"""
+Short for compile(type).check_matches(value).
+"""
 def check_matches(value, type):
     compile(type).check_matches(value)

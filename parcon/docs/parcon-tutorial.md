@@ -27,7 +27,7 @@ Each of these classes is a parser by itself. Every parser class parses a portion
 
 Each parser class is a subclass of Parser, and as such, each parser class provides some important methods:
 
-* **parseString**: This is the method that you'll likely use most. You typically call it like parser.parseString("some text to parse"), and it either returns the result of the parser or throws an exception if the parser didn't match the input. There are two additional arguments to this method that will be discussed later.
+* **parse_string**: This is the method that you'll likely use most. You typically call it like parser.parse_string("some text to parse"), and it either returns the result of the parser or throws an exception if the parser didn't match the input. There are two additional arguments to this method that will be discussed later.
 * **parse**: You typically won't use this method yourself, but you'll need to know about it if you decide to implement your own parser for whatever reason. It's the method that actually knows how to parse text. Each parser provides an implementation of this method. It will be discussed in more detail later.
 
 Methods for parsing input from files or sockets will be present in a future release of Parcon.
@@ -50,11 +50,11 @@ Using this, we can create a parser that matches either "hello" or "bye":
 
 	expr = First(Literal("hello"), Literal("bye"))
 
-If we call expr.parseString("hello") or expr.parseString("bye"), the result will be None. If we call expr.parseString with anything else, an exception will be thrown indicating the problem. If we change Literal to SignificantLiteral:
+If we call expr.parse_string("hello") or expr.parse_string("bye"), the result will be None. If we call expr.parse_string with anything else, an exception will be thrown indicating the problem. If we change Literal to SignificantLiteral:
 
 	expr = First(SignificantLiteral("hello"), SignificantLiteral("bye"))
 
-then the result of expr.parseString("hello") will be "hello", and similar for "bye".
+then the result of expr.parse_string("hello") will be "hello", and similar for "bye".
 
 # Interlude: operator overloading
 

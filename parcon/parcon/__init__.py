@@ -4,15 +4,15 @@ parcon.py
 Parcon is a parser combinator library written by Alexander Boyd.
 
 To get started, look at all of the subclasses of the Parser class, and
-specifically, look at Parser's parseString method. And perhaps try
+specifically, look at Parser's parse_string method. And perhaps try
 running this:
 
 parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
-print parser.parseString("(abbaabaab)")
-print parser.parseString("(a)")
-print parser.parseString("") # should raise an exception
-print parser.parseString("(a") # should raise an exception
-print parser.parseString("(ababacababa)") # should raise an exception
+print parser.parse_string("(abbaabaab)")
+print parser.parse_string("(a)")
+print parser.parse_string("") # should raise an exception
+print parser.parse_string("(a") # should raise an exception
+print parser.parse_string("(ababacababa)") # should raise an exception
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -24,6 +24,7 @@ x | y is the same as First(x, y).
 +x is the same as OneOrMore(x).
 x - y is the same as Except(x, y).
 x[min:max] is the same as Repeat(x, min, max).
+x[...] (three literal dots) is the same as ZeroOrMore(x).
 x[function] is the same as Translate(x, function).
 "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
        some_parser or some_parser op Literal("x"), respectively.
@@ -43,13 +44,13 @@ expr << term
 Some example expressions that can now be evaluated using the above
 simple expression evaluator:
 
-print expr.parseString("1+2") # prints 3
-print expr.parseString("1+2+3") # prints 6
-print expr.parseString("1+2+3+4") # prints 10
-print expr.parseString("3*4") # prints 12
-print expr.parseString("5+3*4") # prints 17
-print expr.parseString("(5+3)*4") # prints 32
-print expr.parseString("10/4") # prints 2.5
+print expr.parse_string("1+2") # prints 3
+print expr.parse_string("1+2+3") # prints 6
+print expr.parse_string("1+2+3+4") # prints 10
+print expr.parse_string("3*4") # prints 12
+print expr.parse_string("5+3*4") # prints 17
+print expr.parse_string("(5+3)*4") # prints 32
+print expr.parse_string("10/4") # prints 2.5
 
 Another example use of Parcon, this one being a JSON parser (essentially
 a reimplementation of Python's json.dumps, without all of the fancy
@@ -69,8 +70,8 @@ json_object = ("{" + Optional(InfixExpr(pair, [(",", cat_dicts)]), {}) + "}")
 json_list = ("[" + Optional(InfixExpr(json[lambda x: [x]], [(",", operator.add)]), []) + "]")
 json << (json_object | json_list | string | boolean | null | number)
 
-Thereafter, json.parseString(text) can be used as a replacement for
-Python's json.dumps.
+Thereafter, json.parse_string(text) can be used as a replacement for
+Python's json.loads.
 """
 
 # Parcon is Copyright 2011 Alexander Boyd. Released under the
@@ -80,7 +81,9 @@ import itertools
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
+alpha_chars = upper_chars + lower_chars
 digit_chars = "0123456789"
+alphanum_chars = alpha_chars + digit_chars
 whitespace = " \t\r\n"
 
 class Result(object):
@@ -206,6 +209,8 @@ def op_neg(parser):
 def op_getitem(parser, function):
     if isinstance(function, slice):
         return Repeat(parser, function.start, function.stop)
+    elif function == Ellipsis:
+        return ZeroOrMore(parser)
     else:
         return Translate(parser, function)
 
@@ -215,12 +220,12 @@ class Parser(object):
     A parser. This class cannot itself be instantiated; you can only use one of
     its subclasses. Most classes in this module are Parser subclasses.
     
-    The method you'll typically use on Parser objects is parseString.
+    The method you'll typically use on Parser objects is parse_string.
     """
     def parse(self, text, position, space):
         raise Exception("Parse not implemented for " + str(type(self)))
     
-    def parseString(self, string, all=True, whitespace=None):
+    def parse_string(self, string, all=True, whitespace=None):
         """
         Parses a string using this parser and returns the result, or throws an
         exception if the parser does not match. If all is True (the default),
@@ -303,7 +308,7 @@ class Literal(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), None, [(position+len(self.text), "EOF")])
+            return match(position + len(self.text), None, [(position + len(self.text), "EOF")])
         else:
             return failure((position, '"' + self.text + '"'))
     
@@ -321,12 +326,31 @@ class SignificantLiteral(Literal):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), self.text, [(position+len(self.text), "EOF")])
+            return match(position + len(self.text), self.text, [(position + len(self.text), "EOF")])
         else:
             return failure((position, '"' + self.text + '"'))
     
     def __repr__(self):
         return "SignificantLiteral(%s)" % repr(self.text)
+
+
+class AnyCase(Parser):
+    """
+    A case-insensitive version of Literal. Behaves exactly the same as Literal
+    does, but without regard to the case of the input.
+    """
+    def __init__(self, text):
+        self.text = text.lower()
+    
+    def parse(self, text, position, space):
+        position = parse_space(text, position, space)
+        if text[position:position + len(self.text)].lower() == self.text:
+            return match(position + len(self.text), None, [(position + len(self.text), "EOF")])
+        else:
+            return failure((position, '"' + self.text + '"'))
+    
+    def __repr__(self):
+        return "AnyCase(%s)" % repr(self.text)
 
 
 class CharIn(Parser):
@@ -341,7 +365,7 @@ class CharIn(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1] and text[position:position + 1] in self.chars:
-            return match(position + 1, text[position], [(position+1, "EOF")])
+            return match(position + 1, text[position], [(position + 1, "EOF")])
         else:
             return failure([(position, 'any char in "' + self.chars + '"')])
     
@@ -408,7 +432,7 @@ class AnyChar(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1]: # At least one char left
-            return match(position + 1, text[position], [(position+1, "EOF")])
+            return match(position + 1, text[position], [(position + 1, "EOF")])
         else:
             return failure([(position, "any char")])
     
@@ -578,6 +602,32 @@ class First(Parser):
         return "First(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
+class Longest(Parser):
+    """
+    A parser that tries all of its specified parsers. The longest one that
+    succeeds is chosen, and its result is returned. If none of the parsers
+    succeed, Longest fails.
+    """
+    def __init__(self, *parsers):
+        self.parsers = parsers
+    
+    def parse(self, text, position, space):
+        expectedForErrors = []
+        successful = []
+        for parser in self.parsers:
+            result = parser.parse(text, position, space)
+            if result:
+                successful.append(result)
+            else:
+                expectedForErrors += result.expected
+        if len(successful) == 0:
+            return failure(expectedForErrors)
+        return max(successful, key=lambda result: result.end)
+    
+    def __repr__(self):
+        return "Longest(%s)" % ", ".join(repr(parser) for parser in self.parsers)
+
+
 class Translate(Parser):
     """
     A parser that passes the result of the parser it's created with, if said
@@ -620,7 +670,7 @@ class Exact(Parser):
     demonstrates the problem:
     
     stringLiteral = '"' + ZeroOrMore(AnyChar() - '"') + '"'
-    result = stringLiteral.parseString('"Hello, great big round world"')
+    result = stringLiteral.parse_string('"Hello, great big round world"')
     
     After running that, result would have the value "Hello,greatbigroundworld".
     This is because the whitespace parser (which defaults to Whitespace())
@@ -628,16 +678,17 @@ class Exact(Parser):
     rewritten using Exact to mitigate this problem:
 
     stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"')) + '"'
-    result = stringLiteral.parseString('"Hello, great big round world"')
+    result = stringLiteral.parse_string('"Hello, great big round world"')
     
     This parser produces the correct result, 'Hello, great big round world'.
     """
-    def __init__(self, parser):
+    def __init__(self, parser, space_parser=Invalid()):
         self.parser = parser
+        self.space_parser = space_parser
     
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
-        return self.parser.parse(text, position, Invalid())
+        return self.parser.parse(text, position, self.space_parser)
     
     def __repr__(self):
         return "Exact(" + repr(self.parser) + ")"
@@ -933,18 +984,94 @@ class Chars(Parser):
     """
 
 
+class Word(Parser):
+    """
+    A parser that parses a word consisting of a certain set of allowed
+    characters. A minimum and maximum word length can also be specified, as can
+    a set of characters of which the first character in the word must be a
+    member.
+    
+    If min is unspecified, it defaults to 1. Max defaults to None, which places
+    no upper limit on the number of characters that can be in this word.
+    
+    Word parses as many characters as it can that are in the specified
+    character set until it's parsed the specified maximum number of characters,
+    or it hits a character not in the specified character set. If, at that
+    point, the number of characters parsed is less than min, this parser fails.
+    Otherwise, it succeeds and produces a string containing all the characters.
+    
+    min can be zero, which will allow this parser to succeed even if there are
+    no characters available or if the first character is not in init_chars.
+    The empty string will be returned in such a case.
+    """
+    def __init__(self, chars, init_chars=None, min=1, max=None):
+        self.chars = chars
+        if init_chars:
+            self.init_chars = init_chars
+        else:
+            self.init_chars = chars
+        self.min = min
+        self.max = max
+    
+    def parse(self, text, position, space):
+        position = parse_space(text, position, space)
+        if not text[position:position + 1] or text[position:position + 1] not in self.init_chars: # Initial char
+            # not present or not one of the ones we expected
+            if min == 0:
+                return match(position, "", [(position, 'any char in "%s"' % self.init_chars)])
+            else:
+                return failure([(position, 'one of "%s"' % self.init_chars)])
+        # Found initial char. Store it, then start parsing the rest of the chars
+        char_list = [text[position]]
+        position += 1
+        parsed_so_far = 1
+        while text[position:position + 1] and text[position:position + 1] in self.chars and (self.max is None or parsed_so_far < self.max):
+            char_list.append(text[position])
+            position += 1
+            parsed_so_far += 1
+        if len(char_list) < self.min:
+            return failure([(position, 'any char in "%s"' % self.chars)])
+        return match(position, "".join(char_list), [(position, 'any char in "%s"' % self.chars)])
+
+
+class Present(Parser):
+    """
+    A lookahead parser; it matches as long as the parser it's constructed with
+    matches at the specified position, but it doesn't actually consume any
+    input, and its result is None.
+    """
+    def __init__(self, parser):
+        self.parser = parser
+    
+    def parse(self, text, position, space):
+        result = self.parser.parse(text, position, space)
+        if result:
+            return match(position, None, [(position, "EOF")])
+        else:
+            return failure(result.expected)
+
+
+alpha_word = Word(alpha_chars)
+alphanum_word = Word(alphanum_chars)
+# Need to decide on a better name for this
+# alpha_alphanum_word = Word(alphanum_chars, init_chars=alpha_chars)
+
+
 def flatten(value):
     """
     A function that recursively flattens the specified value. Tuples and lists
     are flattened into the items that they contain. The result is a list.
     
     If a single non-list, non-tuple value is passed in, the result is a list
-    containing just that item.
+    containing just that item. If, however, that value is None, the result is
+    the empty list.
     
     This function is intended to be used as the function passed to Translate
     where the parser passed to Translate could produce multiple nested lists of
     tuples and lists, and a single, flat, list is desired.
     """
+    if value is None:
+        return []
     if not isinstance(value, (list, tuple)):
         return [value]
     result = []
@@ -952,7 +1079,7 @@ def flatten(value):
         item = flatten(item)
         result += list(item)
     return result
-        
+ 
 
 
 

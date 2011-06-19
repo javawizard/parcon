@@ -18,10 +18,10 @@ evaluation logic to be specified as part of the parser. It uses Python's
 decimal module for arbitrary-precision arithmetic. This expression parser can
 then be used thus:
 
-	print expr.parseString("1+2") # prints 3
-	print expr.parseString("1+2+3") # prints 6
-	print expr.parseString("1+2+3+4") # prints 10
-	print expr.parseString("3*4") # prints 12
-	print expr.parseString("5+3*4") # prints 17
-	print expr.parseString("(5+3)*4") # prints 32
-	print expr.parseString("10/4") # prints 2.5
+	print expr.parse_string("1+2") # prints 3
+	print expr.parse_string("1+2+3") # prints 6
+	print expr.parse_string("1+2+3+4") # prints 10
+	print expr.parse_string("3*4") # prints 12
+	print expr.parse_string("5+3*4") # prints 17
+	print expr.parse_string("(5+3)*4") # prints 32
+	print expr.parse_string("10/4") # prints 2.5
