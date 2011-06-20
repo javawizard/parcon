@@ -85,6 +85,9 @@ def op_or(first, second):
 
 
 class Formatter(object):
+    """
+    The main class of this module, analogous to 
+    """
     def format(self, input):
         raise Exception("format not implemented for " + str(type(self)))
     

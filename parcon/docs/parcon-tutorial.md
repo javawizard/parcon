@@ -1,4 +1,6 @@
-Parcon is a parser combinator library. It's designed to be easy to use, easy to learn, and to provide informative error messages.
+# Parcon
+
+Parcon is a parser combinator library written by Alexander Boyd. It's designed to be easy to use, easy to learn, and to provide informative error messages.
 
 Pargen, which is provided as a submodule of Parcon, is a formatter combinator
 library. It's much the opposite of Parcon: while Parcon is used to parse text
@@ -6,14 +8,17 @@ into various objects, Pargen is used to format objects into text. As an
 example, if you wanted to reimplement Python's json module, you would use
 Parcon to implement json.loads and Pargen to implement json.dumps.
 
-**Pydoc documentation for Parcon** is available [here](parcon.html), and **Pydoc
-documentation for Pargen** is available [here](parcon.pargen.html).
+## Resources
 
-Some example Parcon grammars (along with explanations of what they do) are available [here](parcon-examples.html).
+* **Pydoc documentation for Parcon** is available [here](parcon.html).
+* **Pydoc documentation for Pargen** is available [here](parcon.pargen.html).
+* **Posts on Alex's blog** relating to Parcon can be found [here](http://me.opengroove.org/search/label/parcon).
+
+Some example Parcon grammars (along with explanations of what they do) are available [here](parcon-examples.html). More example Parcon grammars are available in various Parcon posts on Alex's blog, mentioned above.
 Example Pargen grammars are provided in the Pargen pydoc documentation, a link
 to which is provided above.
 
-# Introduction
+## Introduction
 
 *One important note here: for the rest of the documentation, we'll assume that you've run the following Python statement:*
 
@@ -32,7 +37,7 @@ Each parser class is a subclass of Parser, and as such, each parser class provid
 
 Methods for parsing input from files or sockets will be present in a future release of Parcon.
 
-# Literal and SignificantLiteral: literal string parsers
+## Literal and SignificantLiteral: literal string parsers
 
 Let's look at one of the most basic parsers that Parcon provides: Literal. This parser is constructed with a literal string. It matches only if the input is that string, and it returns None. A similar class, SignificantLiteral, returns the literal string itself instead of None.
 
@@ -42,7 +47,7 @@ So, our first example:
 
 expr is now a parser that will parse any piece of text that is exactly "hello".
 
-# First: tries multiple parsers until one succeeds
+## First: tries multiple parsers until one succeeds
 
 This isn't really much use to us yet, so let's look at another parser: First. This parser is constructed with any number of other parsers. It tries to match the first parser first. If it matches, it returns whatever that parser's result was. Otherwise, it tries the second parser, and so on. If none of the parsers match, First fails.
 
@@ -56,7 +61,7 @@ If we call expr.parse_string("hello") or expr.parse_string("bye"), the result wi
 
 then the result of expr.parse_string("hello") will be "hello", and similar for "bye".
 
-# Interlude: operator overloading
+## Interlude: operator overloading
 
 Up until now, actual Parcon classes have been used to create parsers. Every parser overloads some operators, though, which allow us to create parsers in a less verbose manner. These operators are available:
 
@@ -71,7 +76,7 @@ Up until now, actual Parcon classes have been used to create parsers. Every pars
 
 You've only seen First thus far; the rest of these parsers will be discussed later. If the literal string is used on one side of an operator where a parser is used on the other side, the literal string will be wrapped with Literal automatically. Some other parsers (such as Keyword) will also automatically wrap literal string passed into them with instances of Literal.
 
-# Then: one parser followed by another
+## Then: one parser followed by another
 
 Going back to our hello/bye example, let's say that we wanted to be able to parse "hello there" and "bye there", but we want the result of our parser to still be "hello" or "bye", so we can't just add " there" to the end of each SignificantLiteral. We can use Then to do this. Then attempts to match its first parser. If it succeeds, it matches its second parser where the first one stopped. If either parser fails, Then fails. If both parsers succeed, the result is a tuple containing the results, with two exceptions: first, if either of Then's parsers also produce a tuple, the resulting tuples are flattened together, and second, if either of Then's parsers produces None, the result is simply the result of the parser that did not, or None if both parsers did.
 
@@ -81,7 +86,7 @@ So let's try it out. We'll be using | to represent First and + to represent Then
 
 This parser will match "hello there" or "bye there", and will return "hello" or "bye", respectively. All other strings will result in an exception.
 
-# Further reading
+## Further reading
 
 Each parser class in the Parcon library has a docstring specifying what it does and how to use it. That's probably the best place to start with all of the other parsers.
 

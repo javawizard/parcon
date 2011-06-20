@@ -269,6 +269,28 @@ class Sequence(StaticType):
         return "Sequence()"
 
 
+class Positional(StaticType):
+    """
+    A static type that matches a value if the value is a sequence, it has
+    exactly the same number of value as were passed to the Positional instance
+    when it was created, and each item matches the corresponding static type
+    passed to the Positional instance when it was created. For example,
+    Positional(int, str, bool) would match a sequence of length 3 containing
+    an integer, a string, and a boolean, at each respective position in the
+    sequence.
+    """
+    def __init__(self, *types):
+        self.types = [compile(type) for type in types]
+    
+    def matches(self, value):
+        if len(self.types) != len(value):
+            return False
+        for t, v in zip(self.types, value):
+            if not t.matches(v):
+                return False
+        return True
+
+
 class Everything(StaticType):
     """
     A static type that matches all values.

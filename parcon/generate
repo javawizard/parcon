@@ -2,11 +2,14 @@
 
 cd docs
 
-pandoc -o parcon-tutorial-temp.html parcon-tutorial.md
-pandoc -o parcon-examples-temp.html parcon-examples.md
-cat ../technotes/start-html.txt parcon-tutorial-temp.html ../technotes/end-html.txt > parcon-tutorial.html
-cat ../technotes/start-html.txt parcon-examples-temp.html ../technotes/end-html.txt > parcon-examples.html
-rm parcon-tutorial-temp.html parcon-examples-temp.html
+
+for DOC in parcon-tutorial parcon-examples
+do
+	pandoc -o ${DOC}-temp.html ${DOC}.md
+	../technotes/template-creator.pl ../technotes/web-template.html ${DOC}-temp.html ../technotes/sidebar.html ${DOC}.html
+	rm ${DOC}-temp.html
+done
+
 
 for PACKAGE in parcon parcon.pargen parcon.static
 do
@@ -15,5 +18,6 @@ do
 	rm ${PACKAGE}.html
 	mv ${PACKAGE}-new.html ${PACKAGE}.html
 done
+
 
 cd .. 

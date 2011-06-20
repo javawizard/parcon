@@ -3,6 +3,10 @@ parcon.py
 
 Parcon is a parser combinator library written by Alexander Boyd.
 
+Technically, it's a monadic parser combinator library, but you don't need to
+know that unless you're doing really fancy things. (The bind and return
+operations are provided by the Bind and Return parsers, respectively.)
+
 To get started, look at all of the subclasses of the Parser class, and
 specifically, look at Parser's parse_string method. And perhaps try
 running this:
@@ -24,6 +28,7 @@ x | y is the same as First(x, y).
 +x is the same as OneOrMore(x).
 x - y is the same as Except(x, y).
 x[min:max] is the same as Repeat(x, min, max).
+x[some_int] is the same as Repeat(x, some_int, some_int).
 x[...] (three literal dots) is the same as ZeroOrMore(x).
 x[function] is the same as Translate(x, function).
 "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
@@ -72,12 +77,17 @@ json << (json_object | json_list | string | boolean | null | number)
 
 Thereafter, json.parse_string(text) can be used as a replacement for
 Python's json.loads.
+
+An interesting fact: the set of all Parcon parsers form a monoid with the
+binary operation being the Then parser (or the + operator, since it produces a
+Then parser) and the identity element being Return(None).
 """
 
 # Parcon is Copyright 2011 Alexander Boyd. Released under the
 # terms of the GNU Lesser General Public License.
 
 import itertools
+from parcon import static
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -85,6 +95,56 @@ alpha_chars = upper_chars + lower_chars
 digit_chars = "0123456789"
 alphanum_chars = alpha_chars + digit_chars
 whitespace = " \t\r\n"
+
+
+class Expectation(object):
+    def format(self):
+        raise NotImplementedError
+    
+    def __str__(self):
+        return "Expectation()"
+    
+    def __repr__(self):
+        return self.__str__()
+
+
+class EUnsatisfiable(Expectation):
+    def format(self):
+        return "EOF"
+    
+    def __str__(self):
+        return "EUnsatisfiable()"
+
+
+class EStringLiteral(Expectation):
+    def __init__(self, text):
+        self.text = text
+    
+    def format(self):
+        return '"' + self.text + '"'
+    
+    def __str__(self):
+        return "EStringLiteral(%s)" % repr(self.text)
+
+
+class EAnyCharIn(Expectation):
+    def __init__(self, chars):
+        self.chars = chars
+    
+    def format(self):
+        return 'any char in "' + "".join(self.chars) + '"'
+    
+    def __str__(self):
+        return "EAnyCharIn(%s)" % repr(self.chars)
+
+
+class EAnyChar(Expectation):
+    def format(self):
+        return "any char"
+    
+    def __str__(self):
+        return "EAnyChar()"
+
 
 class Result(object):
     """
@@ -98,6 +158,7 @@ class Result(object):
         self.value = value
         if not isinstance(expected, list):
             expected = [expected]
+        static.check_matches(expected, [static.Positional(int, Expectation)])
         self.expected = expected
     
     def __nonzero__(self):
@@ -118,8 +179,8 @@ def failure(expected):
     a list of expectations that would have had to be satisfied in the text
     passed to the parser calling this method in order for it to potentially
     succeed. Expectations are 2-tuples of the position at which some particular
-    piece of text was expected and a string describing the text, such as
-    'any char' or '"literal-text"'.
+    piece of text was expected and an instance of one of the subclasses of
+    Expectation describing what was expected.
     """
     return Result(None, None, expected)
 
@@ -140,16 +201,34 @@ def match(end, value, expected):
 
 def format_failure(expected):
     """
-    Formats a list of expectations into a failure message of the form:
+    Formats a list of expectations into a failure message that typically looks
+    something like this:
     
-    At position n: expected one of x, y, z
+    At position n: expected one of x, y, or z
     """
+    static.compile([static.Positional(int, Expectation)]).check_matches(expected)
+    # First make sure we actually have some expectations to deal with
     if len(expected) == 0:
         return "(No expectations present, so an error message can't be constructed)"
-    max_position = max(expected, key=lambda (position, expectation): position)[0]
-    expectations = filter(lambda (position, expectation): position == max_position, expected)
-    expectations = [expectation for (position, expectation) in expectations]
-    return "At position %s: expected one of %s" % (max_position, ", ".join(expectations))
+    # Now we construct the list of expectations that we'll use for our message.
+    # The way that we compute this list varies depending on whether or not the
+    # list of expectations contains any values other than EUnsatisfiable.
+    if static.compile([static.Positional(int, EUnsatisfiable)]).matches(expected):
+        # This is a bunch of EUnsatisfiables, so we simply take the one at the
+        # last position and create a singleton list based off of it.
+        max_position, e = max(expected, key=lambda (position, _): position)
+        expectations = [e]
+    else:
+        # This contains things besides EUnsatisfiables, so we filter out all of
+        # the unsatisfiables, then get all the other ones at the resulting
+        # maximum position.
+        expected = [e for e in expected if not isinstance(e[1], EUnsatisfiable)]
+        max_position = max(expected, key=lambda (position, _): position)[0]
+        expectations = [e for p, e in expected if p == max_position]
+    # We've got the list. Now we'll remove duplicates...
+    expectations = list(set(expectations))
+    # ...and then format the error message, and we're done!
+    return "At position %s: expected one of %s" % (max_position, ", ".join([e.format() for e in expectations]))
 
 
 def parse_space(text, position, space):
@@ -159,6 +238,11 @@ def parse_space(text, position, space):
     of all of these parses will be discarded, and the location at which the
     whitespace parser failed will be returned.
     """
+    # Basically just parse space, then loop while we actually parsed some
+    # space, and parse more and more space, and so on. Of course, we'll want to
+    # pass Invalid() as the whitespace parser to avoid indefinite recursion
+    # because we try to remove the whitespace from before the whitespace parser
+    # and so on.
     result = space.parse(text, position, Invalid())
     while result:
         position = result.end
@@ -178,6 +262,9 @@ def promote(value):
         return Literal(value)
     return value
 
+
+# These are the various operators provided on every parser. The documentation
+# for each one is provided as part of the Parcon module documentation.
 
 def op_add(first, second):
     first = promote(first)
@@ -211,6 +298,8 @@ def op_getitem(parser, function):
         return Repeat(parser, function.start, function.stop)
     elif function == Ellipsis:
         return ZeroOrMore(parser)
+    elif isinstance(function, (int, long)):
+        return Repeat(parser, function, function)
     else:
         return Translate(parser, function)
 
@@ -251,7 +340,8 @@ class Parser(object):
         else:
             raise Exception("Parse failure: " + format_failure(result.expected))
         return result.value
-            
+    
+    # All of the operators available to parsers
     
     def __add__(self, other):
         return op_add(self, other)
@@ -289,7 +379,13 @@ class Invalid(Parser):
     A parser that never matches any input and always fails.
     """
     def parse(self, text, position, space):
-        return failure((position, "EOF"))
+        # This MUST NOT attempt to parse out any whitespace before failing, for
+        # two reasons: 1, it's pointless anyway, and 2, it will cause
+        # infinite recursion in parse_whitespace, which is called by nearly
+        # every parser. (If you want to see why, add a call to parse_whitespace
+        # to this method, then try parsing any string with something like
+        # Literal("a"), and you'll see what happens.)
+        return failure((position, EUnsatisfiable()))
     
     def __repr__(self):
         return "Invalid()"
@@ -308,9 +404,9 @@ class Literal(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), None, [(position + len(self.text), "EOF")])
+            return match(position + len(self.text), None, [(position + len(self.text), EUnsatisfiable())])
         else:
-            return failure((position, '"' + self.text + '"'))
+            return failure((position, EStringLiteral(self.text)))
     
     def __repr__(self):
         return "Literal(%s)" % repr(self.text)
@@ -326,9 +422,9 @@ class SignificantLiteral(Literal):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), self.text, [(position + len(self.text), "EOF")])
+            return match(position + len(self.text), self.text, [(position + len(self.text), EUnsatisfiable())])
         else:
-            return failure((position, '"' + self.text + '"'))
+            return failure((position, EStringLiteral(self.text)))
     
     def __repr__(self):
         return "SignificantLiteral(%s)" % repr(self.text)
@@ -345,9 +441,9 @@ class AnyCase(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + len(self.text)].lower() == self.text:
-            return match(position + len(self.text), None, [(position + len(self.text), "EOF")])
+            return match(position + len(self.text), None, [(position + len(self.text), EUnsatisfiable())])
         else:
-            return failure((position, '"' + self.text + '"'))
+            return failure((position, EStringLiteral(self.text)))
     
     def __repr__(self):
         return "AnyCase(%s)" % repr(self.text)
@@ -365,9 +461,9 @@ class CharIn(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1] and text[position:position + 1] in self.chars:
-            return match(position + 1, text[position], [(position + 1, "EOF")])
+            return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
         else:
-            return failure([(position, 'any char in "' + self.chars + '"')])
+            return failure([(position, EAnyCharIn(self.chars))])
     
     def __repr__(self):
         return "CharIn(" + repr(self.chars) + ")"
@@ -432,9 +528,9 @@ class AnyChar(Parser):
     def parse(self, text, position, space):
         position = parse_space(text, position, space)
         if text[position:position + 1]: # At least one char left
-            return match(position + 1, text[position], [(position + 1, "EOF")])
+            return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
         else:
-            return failure([(position, "any char")])
+            return failure([(position, EAnyChar())])
     
     def __repr__(self):
         return "AnyChar()"
@@ -460,7 +556,7 @@ class Except(Parser):
             return failure(result.expected)
         avoidResult = self.avoidParser.parse(text, position, space)
         if avoidResult:
-            return failure([(position, "(TBD: Except)")])
+            return failure([(position, EStringLiteral("(TBD: except)"))])
         return result
     
     def __repr__(self):
@@ -526,6 +622,11 @@ class Then(Parser):
     If A is a tuple but B is not, the result is A + (B,).
     If B is a tuple but A is not, the result is (A,) + B.
     Otherwise, the result is (A, B).
+    
+    Named tuples (instances of classes created with collections.namedtuple) are
+    not treated as tuples in the above decision process. In fact, any subclass
+    of tuple is treated as if it were a completely separate object and not a
+    tuple at all.
     """
     def __init__(self, first, second):
         self.first = first
@@ -545,11 +646,11 @@ class Then(Parser):
             return match(position, b, secondResult.expected)
         elif b is None:
             return match(position, a, secondResult.expected)
-        if isinstance(a, tuple) and isinstance(b, tuple):
+        if type(a) == tuple and type(b) == tuple:
             return match(position, a + b, secondResult.expected)
-        elif isinstance(a, tuple):
+        elif type(a) == tuple:
             return match(position, a + (b,), secondResult.expected)
-        elif isinstance(b, tuple):
+        elif type(b) == tuple:
             return match(position, (a,) + b, secondResult.expected)
         else:
             return match(position, (a, b), secondResult.expected)
@@ -956,7 +1057,7 @@ class Return(Parser):
         self.value = value
     
     def parse(self, text, position, whitespace):
-        return match(position, self.value, [(position, "EOF")])
+        return match(position, self.value, [(position, EUnsatisfiable())])
 
 
 class Chars(Parser):
@@ -1018,9 +1119,9 @@ class Word(Parser):
         if not text[position:position + 1] or text[position:position + 1] not in self.init_chars: # Initial char
             # not present or not one of the ones we expected
             if min == 0:
-                return match(position, "", [(position, 'any char in "%s"' % self.init_chars)])
+                return match(position, "", [(position, EAnyCharIn(self.init_chars))])
             else:
-                return failure([(position, 'one of "%s"' % self.init_chars)])
+                return failure([(position, EAnyCharIn(self.init_chars))])
         # Found initial char. Store it, then start parsing the rest of the chars
         char_list = [text[position]]
         position += 1
@@ -1030,8 +1131,8 @@ class Word(Parser):
             position += 1
             parsed_so_far += 1
         if len(char_list) < self.min:
-            return failure([(position, 'any char in "%s"' % self.chars)])
-        return match(position, "".join(char_list), [(position, 'any char in "%s"' % self.chars)])
+            return failure([(position, EAnyCharIn(self.chars))])
+        return match(position, "".join(char_list), [(position, EAnyCharIn(self.chars))])
 
 
 class Present(Parser):
@@ -1046,7 +1147,7 @@ class Present(Parser):
     def parse(self, text, position, space):
         result = self.parser.parse(text, position, space)
         if result:
-            return match(position, None, [(position, "EOF")])
+            return match(position, None, [(position, EUnsatisfiable())])
         else:
             return failure(result.expected)
 
