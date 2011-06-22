@@ -112,7 +112,7 @@ class Type(StaticType):
 class Or(StaticType):
     """
     A static type that matches a value if any of its constructs match that
-    particular value The constructs are stored in a field named constructs.
+    particular value. The constructs are stored in a field named constructs.
     """
     def __init__(self, *constructs):
         self.constructs = [compile(c) for c in constructs]
@@ -339,8 +339,8 @@ def matches(value, type):
     return compile(type).matches(value)
 
 
-"""
-Short for compile(type).check_matches(value).
-"""
 def check_matches(value, type):
+    """
+    Short for compile(type).check_matches(value).
+    """
     compile(type).check_matches(value)

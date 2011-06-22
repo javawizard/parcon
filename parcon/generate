@@ -3,7 +3,7 @@
 cd docs
 
 
-for DOC in parcon-tutorial parcon-examples
+for DOC in parcon-tutorial parcon-examples parcon-donate parcon-download
 do
 	pandoc -o ${DOC}-temp.html ${DOC}.md
 	../technotes/template-creator.pl ../technotes/web-template.html ${DOC}-temp.html ../technotes/sidebar.html ${DOC}.html
