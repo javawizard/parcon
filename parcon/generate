@@ -11,7 +11,7 @@ do
 done
 
 
-for PACKAGE in parcon parcon.pargen parcon.static
+for PACKAGE in parcon parcon.pargen parcon.static parcon.pargon parcon.pargon.nbo
 do
 	PYTHONPATH=.. pydoc -w $PACKAGE
 	../technotes/pydoc-analytics.pl ${PACKAGE}.html ${PACKAGE}-new.html

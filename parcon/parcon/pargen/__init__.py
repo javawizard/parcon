@@ -86,7 +86,8 @@ def op_or(first, second):
 
 class Formatter(object):
     """
-    The main class of this module, analogous to 
+    The main class of this module, analogous to parcon.Parser, but for
+    formatters.
     """
     def format(self, input):
         raise Exception("format not implemented for " + str(type(self)))

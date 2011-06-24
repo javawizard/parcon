@@ -23,6 +23,15 @@ class ParserFormatter(parcon.Parser, pargen.Formatter):
     that acts like a predetermined parser and a predetermined formatter. If you
     want to implement a custom parser/formatter yourself, you can just subclass
     both Parser and Formatter in your new class.
+    
+    Instances of this class or any of its subclasses should not be used as
+    arguments to operators like + or |. The reason for this is that both Parser
+    and Formatter provide implementations of these operators, and
+    ParserFormatter doesn't guarantee which one will be used. If you want to
+    use such operators, you can wrap the ParserFormatter instance in a
+    parcon.Forward or pargen.Forward; these will both serve to wrap the
+    ParserFormatter instance in a parser or formatter and allow it to be used
+    as an argument to operators.
     """
     def __init__(self, parser, formatter):
         parser_type.check_matches(parser)
