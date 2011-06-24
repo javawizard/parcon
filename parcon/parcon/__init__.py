@@ -1,7 +1,9 @@
 """
 parcon.py
 
-Parcon is a parser combinator library written by Alexander Boyd.
+Parcon is a parser combinator library written by Alexander Boyd. (His email
+address is alex at open groove dot org, with no space in between "open" and
+"groove".)
 
 Technically, it's a monadic parser combinator library, but you don't need to
 know that unless you're doing really fancy things. (The bind and return
@@ -101,7 +103,29 @@ whitespace = " \t\r\n"
 
 
 class Expectation(object):
+    """
+    NOTE: Most users won't need to know about this class or any of its
+    subclasses. They're usually only used internally by Parcon, but advanced
+    users may wish to use them.
+    
+    An expectation. Instances of the various subclasses of this class are
+    provided as part of a Result object to indicate what could have made a
+    parser succeed if it failed, or consume more input if it succeeded.
+    Expectations are used to format the error message when Parser.parse_string
+    throws an exception because of a parse error.
+    
+    This class should not be instantiated directly; instead, one of its various
+    subclasses should be used instead.
+    """
     def format(self):
+        """
+        Formats this expectation into a human-readable string. For example,
+        EStringLiteral("hello").format() returns '"hello"', and
+        EAnyCharIn("abc").format() returns 'any char in "abc"'.
+        
+        Subclasses must override this method; Expectation's implementation of
+        the method raises NotImplementedError.
+        """
         raise NotImplementedError
     
     def __str__(self):
@@ -112,6 +136,21 @@ class Expectation(object):
 
 
 class EUnsatisfiable(Expectation):
+    """
+    An expectation indicating that there is no input that could have been
+    present that would have made the parser in question succeed or consume more
+    input. Invalid(), for example, returns EUnsatisfiable() since nothing will
+    make an Invalid match, and EStringLiteral, when it succeeds, returns
+    EUnsatisfiable() since there isn't any additional text that could be added
+    that would make EStringLiteral consume more of the input.
+    
+    EUnsatisfiable is treated specially by format_failure; instances of it are
+    removed if there are expectations of any other type in the list provided
+    to format_failure. If there are not, the EUnsatisfiable with the greatest
+    position (expectations are stored as tuples of (position, Expectation)) is
+    used, and the message will look something like "At position n: expected
+    EOF".
+    """
     def format(self):
         return "EOF"
     
@@ -120,6 +159,12 @@ class EUnsatisfiable(Expectation):
 
 
 class EStringLiteral(Expectation):
+    """
+    An expectation indicating that some literal string was expected. When
+    formatted, the string will be enclosed in double quotes. In the future, I
+    may have the representation as returned from Python's repr function be used
+    instead.
+    """
     def __init__(self, text):
         self.text = text
     
@@ -130,6 +175,9 @@ class EStringLiteral(Expectation):
         return "EStringLiteral(%s)" % repr(self.text)
 
 class ERegex(Expectation):
+    """
+    An expectation indicating that some regular expression was expected.
+    """
     def __init__(self, pattern_text):
         self.pattern_text = pattern_text
     
@@ -141,6 +189,11 @@ class ERegex(Expectation):
 
 
 class EAnyCharIn(Expectation):
+    """
+    An expectation indicating that any character in a particular sequence of
+    characters (a list of one-character strings, or a string containing the
+    expected characters) was expected.
+    """
     def __init__(self, chars):
         self.chars = chars
     
@@ -152,11 +205,32 @@ class EAnyCharIn(Expectation):
 
 
 class EAnyChar(Expectation):
+    """
+    An expectation indicating that any character was expected.
+    """
     def format(self):
         return "any char"
     
     def __str__(self):
         return "EAnyChar()"
+
+
+class ECustomExpectation(Expectation):
+    """
+    An expectation indicating that some custom value was expected. This is used
+    when instances of the Expected parser fail. Users implementing their own
+    subclass of Parser that don't want to write a corresponding subclass of
+    Expectation but that find that none of the current subclasses of
+    Expectation fit their needs might also want to use ECustomExpectation.
+    """
+    def __init__(self, message):
+        self.message = message
+    
+    def format(self):
+        return self.message
+    
+    def __str__(self):
+        return "ECustomExpectation(%s)" % repr(self.message)
 
 
 class Result(object):
@@ -218,6 +292,9 @@ def format_failure(expected):
     something like this:
     
     At position n: expected one of x, y, or z
+    
+    Expectations are provided in the same format as passed to the failure()
+    function.
     """
     static.compile([static.Positional(int, Expectation)]).check_matches(expected)
     # First make sure we actually have some expectations to deal with
@@ -244,7 +321,7 @@ def format_failure(expected):
     return "At position %s: expected one of %s" % (max_position, ", ".join([e.format() for e in expectations]))
 
 
-def parse_space(text, position, space):
+def parse_space(text, position, end, space):
     """
     Repeatedly applies the specified whitespace parser to the specified text
     starting at the specified position until it no longer matches. The result
@@ -256,10 +333,10 @@ def parse_space(text, position, space):
     # pass Invalid() as the whitespace parser to avoid indefinite recursion
     # because we try to remove the whitespace from before the whitespace parser
     # and so on.
-    result = space.parse(text, position, Invalid())
+    result = space.parse(text, position, end, Invalid())
     while result:
         position = result.end
-        result = space.parse(text, position, Invalid())
+        result = space.parse(text, position, end, Invalid())
     return position
 
 
@@ -338,7 +415,7 @@ class Parser(object):
     
     The method you'll typically use on Parser objects is parse_string.
     """
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         raise Exception("Parse not implemented for " + str(type(self)))
     
     def parse_string(self, string, all=True, whitespace=None):
@@ -359,7 +436,7 @@ class Parser(object):
         """
         if whitespace is None:
             whitespace = Whitespace()
-        result = self.parse(string, 0, whitespace)
+        result = self.parse(string, 0, len(string), whitespace)
         if result and (result.end == len(string) or not all):
             # Result matched, and either the entire string was parsed or we're
             # not trying to parse the entire string.
@@ -400,6 +477,12 @@ class Parser(object):
     def __invert__(self):
         return op_invert(self)
     
+    def __and__(self, other):
+        return op_and(self, other)
+    
+    def __rand__(self, other):
+        return op_and(other, self)
+    
     def __str__(self):
         return self.__repr__()
 
@@ -408,7 +491,7 @@ class Invalid(Parser):
     """
     A parser that never matches any input and always fails.
     """
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         # This MUST NOT attempt to parse out any whitespace before failing, for
         # two reasons: 1, it's pointless anyway, and 2, it will cause
         # infinite recursion in parse_whitespace, which is called by nearly
@@ -431,10 +514,11 @@ class Literal(Parser):
     def __init__(self, text):
         self.text = text
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), None, [(position + len(self.text), EUnsatisfiable())])
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        expected_end = position + len(self.text)
+        if expected_end <= end and text[position:expected_end] == self.text:
+            return match(expected_end, None, [(expected_end, EUnsatisfiable())])
         else:
             return failure((position, EStringLiteral(self.text)))
     
@@ -449,10 +533,11 @@ class SignificantLiteral(Literal):
     SignificantLiteral returns the literal string passed into it instead of
     None.
     """
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if text[position:position + len(self.text)] == self.text:
-            return match(position + len(self.text), self.text, [(position + len(self.text), EUnsatisfiable())])
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        expected_end = position + len(self.text)
+        if expected_end <= end and text[position:expected_end] == self.text:
+            return match(expected_end, self.text, [(expected_end, EUnsatisfiable())])
         else:
             return failure((position, EStringLiteral(self.text)))
     
@@ -464,14 +549,20 @@ class AnyCase(Parser):
     """
     A case-insensitive version of Literal. Behaves exactly the same as Literal
     does, but without regard to the case of the input.
+    
+    If enough people request a version that returns the matched text instead of
+    None (send me an email if you're one of these people; my email is at the
+    top of this file, in the module docstring), I'll provide such a parser. For
+    now, though, you can use a Regex parser to accomplish the same thing.
     """
     def __init__(self, text):
         self.text = text.lower()
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if text[position:position + len(self.text)].lower() == self.text:
-            return match(position + len(self.text), None, [(position + len(self.text), EUnsatisfiable())])
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        expected_end = position + len(self.text)
+        if expected_end <= end and text[position:expected_end].lower() == self.text:
+            return match(expected_end, None, [(expected_end, EUnsatisfiable())])
         else:
             return failure((position, EStringLiteral(self.text)))
     
@@ -488,10 +579,11 @@ class CharIn(Parser):
     def __init__(self, chars):
         self.chars = chars
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if text[position:position + 1] and text[position:position + 1] in self.chars:
-            return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        expected_end = position + 1
+        if position < end and text[position:expected_end] in self.chars:
+            return match(expected_end, text[position], [(expected_end, EUnsatisfiable())])
         else:
             return failure([(position, EAnyCharIn(self.chars))])
     
@@ -555,9 +647,9 @@ class AnyChar(Parser):
     A parser that matches any single character. It returns the character that
     it matched.
     """
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if text[position:position + 1]: # At least one char left
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        if position < end: # At least one char left
             return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
         else:
             return failure([(position, EAnyChar())])
@@ -579,12 +671,12 @@ class Except(Parser):
         self.parser = parser
         self.avoidParser = avoidParser
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         # May want to parse space to make sure the two parsers are in sync
-        result = self.parser.parse(text, position, space)
+        result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
-        avoidResult = self.avoidParser.parse(text, position, space)
+        avoidResult = self.avoidParser.parse(text, position, end, space)
         if avoidResult:
             return failure([(position, EStringLiteral("(TBD: except)"))])
         return result
@@ -603,13 +695,13 @@ class ZeroOrMore(Parser):
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         result = []
-        parserResult = self.parser.parse(text, position, space)
+        parserResult = self.parser.parse(text, position, end, space)
         while parserResult:
             result.append(parserResult.value)
             position = parserResult.end
-            parserResult = self.parser.parse(text, position, space)
+            parserResult = self.parser.parse(text, position, end, space)
         return match(position, result, parserResult.expected)
     
     def __repr__(self):
@@ -624,13 +716,13 @@ class OneOrMore(Parser):
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         result = []
-        parserResult = self.parser.parse(text, position, space)
+        parserResult = self.parser.parse(text, position, end, space)
         while parserResult:
             result.append(parserResult.value)
             position = parserResult.end
-            parserResult = self.parser.parse(text, position, space)
+            parserResult = self.parser.parse(text, position, end, space)
         if len(result) == 0:
             return failure(parserResult.expected)
         return match(position, result, parserResult.expected)
@@ -662,12 +754,12 @@ class Then(Parser):
         self.first = first
         self.second = second
     
-    def parse(self, text, position, space):
-        firstResult = self.first.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        firstResult = self.first.parse(text, position, end, space)
         if not firstResult:
             return failure(firstResult.expected)
         position = firstResult.end
-        secondResult = self.second.parse(text, position, space)
+        secondResult = self.second.parse(text, position, end, space)
         if not secondResult:
             return failure(firstResult.expected + secondResult.expected)
         position = secondResult.end
@@ -700,8 +792,8 @@ class Discard(Parser):
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, space):
-        result = self.parser.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if result:
             return match(result.end, None, result.expected)
         else:
@@ -719,10 +811,10 @@ class First(Parser):
     def __init__(self, *parsers):
         self.parsers = parsers
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         expectedForErrors = []
         for parser in self.parsers:
-            result = parser.parse(text, position, space)
+            result = parser.parse(text, position, end, space)
             if result:
                 return result
             else:
@@ -742,11 +834,11 @@ class Longest(Parser):
     def __init__(self, *parsers):
         self.parsers = parsers
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         expectedForErrors = []
         successful = []
         for parser in self.parsers:
-            result = parser.parse(text, position, space)
+            result = parser.parse(text, position, end, space)
             if result:
                 successful.append(result)
             else:
@@ -781,8 +873,8 @@ class Translate(Parser):
         self.parser = parser
         self.function = function
     
-    def parse(self, text, position, space):
-        result = self.parser.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
         return match(result.end, self.function(result.value), result.expected)
@@ -817,9 +909,9 @@ class Exact(Parser):
         self.parser = parser
         self.space_parser = space_parser
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        return self.parser.parse(text, position, self.space_parser)
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        return self.parser.parse(text, position, end, self.space_parser)
     
     def __repr__(self):
         return "Exact(" + repr(self.parser) + ")"
@@ -835,8 +927,8 @@ class Optional(Parser):
         self.parser = parser
         self.default = default
     
-    def parse(self, text, position, space):
-        result = self.parser.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if result:
             return result
         else:
@@ -862,11 +954,11 @@ class Repeat(Parser):
         self.min = min
         self.max = max
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         result = []
         parse_result = None
         for i in (xrange(self.max) if self.max is not None else itertools.count(0)):
-            parse_result = self.parser.parse(text, position, space)
+            parse_result = self.parser.parse(text, position, end, space)
             if not parse_result:
                 break
             position = parse_result.end
@@ -890,12 +982,12 @@ class Keyword(Parser):
         self.parser = promote(parser)
         self.terminator = promote(terminator) if terminator is not None else None
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         if self.terminator:
             terminator = self.terminator
         else:
             terminator = space
-        result = self.parser.parse(text, position, space)
+        result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
         terminatorResult = terminator.parse(text, result.end, space)
@@ -934,22 +1026,30 @@ class Forward(Parser):
     specified parser.
     
     The parser must be set before parse is called on anything using the
-    Forward instance for the first time. This normally shouldn't be a problem.
-    """
-    def __init__(self):
-        self.parser = None
+    Forward instance.
     
-    def parse(self, text, position, space):
+    You can also specify the parser when you create the Forward instance. This
+    is usually somewhat pointless, but it can be useful if you're simply trying
+    to create a mutable parser (the parser can be set into a Forward multiple
+    times, with the effect of changing the underlying parser each time).
+    """
+    def __init__(self, parser=None):
+        self.parser = parser
+    
+    def parse(self, text, position, end, space):
         if not self.parser:
             raise Exception("Forward.parse was called before the specified "
                             "Forward instance's set function or << operator "
                             "was used to specify a parser.")
-        return self.parser.parse(text, position, space)
+        return self.parser.parse(text, position, end, space)
     
     def set(self, parser):
         """
         Sets the parser that this Forward should use. After you call this
         method, this Forward acts just like it were really the specified parser.
+        
+        This method can be called multiple times; each time it's called, it
+        changes the parser in use by this Forward instance.
         """
         parser = promote(parser)
         self.parser = parser
@@ -997,9 +1097,9 @@ class InfixExpr(Parser):
             raise Exception("InfixExpr must be created with at least one operator")
         self.operators = [(promote(op), function) for op, function in operators]
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         # Parse the first component
-        component_result = self.component.parse(text, position, space)
+        component_result = self.component.parse(text, position, end, space)
         if not component_result:
             return failure(component_result.expected)
         # Set up initial values from the first component
@@ -1013,7 +1113,7 @@ class InfixExpr(Parser):
             ops_expected += component_result.expected
             # Try each operator's op parser in sequence
             for op_parser, op_function in self.operators:
-                op_result = op_parser.parse(text, position, space)
+                op_result = op_parser.parse(text, position, end, space)
                 if op_result:
                     # This operator matched, so we break out of our loop
                     found_op = True
@@ -1026,7 +1126,7 @@ class InfixExpr(Parser):
                 return match(position, value, ops_expected)
             # We have an operator. Now we set the new position and try to parse
             # a component following it.
-            component_result = self.component.parse(text, op_result.end, space)
+            component_result = self.component.parse(text, op_result.end, end, space)
             if not component_result:
                 # Component didn't match, so we return the current value, along
                 # with the component's expectation and the expectations of the
@@ -1064,12 +1164,12 @@ class Bind(Parser):
         self.parser = parser
         self.function = function
     
-    def parse(self, text, position, whitespace):
-        first_result = self.parser.parse(text, position, whitespace)
+    def parse(self, text, position, end, whitespace):
+        first_result = self.parser.parse(text, position, end, whitespace)
         if not first_result:
             return failure(first_result.expected)
         second_parser = self.function(first_result.value)
-        second_result = second_parser.parse(text, first_result.end, whitespace)
+        second_result = second_parser.parse(text, first_result.end, end, whitespace)
         if not second_result:
             return failure(second_result.expected + first_result.expected)
         return match(second_result.end, second_result.value, second_result.expected)
@@ -1086,7 +1186,7 @@ class Return(Parser):
     def __init__(self, value):
         self.value = value
     
-    def parse(self, text, position, whitespace):
+    def parse(self, text, position, end, whitespace):
         return match(position, self.value, [(position, EUnsatisfiable())])
 
 
@@ -1116,10 +1216,10 @@ class Chars(Parser):
     def __init__(self, number):
         self.number = number
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if position + self.number > len(text):
-            return failure([(len(text), EAnyChar())])
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        if position + self.number > end:
+            return failure([(end, EAnyChar())])
         result = text[position:position + self.number]
         end_position = position + self.number
         return match(end_position, result, [(end_position, EUnsatisfiable())])
@@ -1154,9 +1254,9 @@ class Word(Parser):
         self.min = min
         self.max = max
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        if not text[position:position + 1] or text[position:position + 1] not in self.init_chars: # Initial char
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        if position >= end or text[position:position + 1] not in self.init_chars: # Initial char
             # not present or not one of the ones we expected
             if min == 0:
                 return match(position, "", [(position, EAnyCharIn(self.init_chars))])
@@ -1166,30 +1266,59 @@ class Word(Parser):
         char_list = [text[position]]
         position += 1
         parsed_so_far = 1
-        while text[position:position + 1] and text[position:position + 1] in self.chars and (self.max is None or parsed_so_far < self.max):
+        while position < end and text[position:position + 1] in self.chars and (self.max is None or parsed_so_far < self.max):
             char_list.append(text[position])
             position += 1
             parsed_so_far += 1
         if len(char_list) < self.min:
             return failure([(position, EAnyCharIn(self.chars))])
         return match(position, "".join(char_list), [(position, EAnyCharIn(self.chars))])
+    
+    def __repr__(self):
+        return "Word(%s, %s, %s, %s)" % (repr(self.chars), repr(self.init_chars),
+                                         repr(self.min), repr(self.max))
 
 
 class Present(Parser):
     """
     A lookahead parser; it matches as long as the parser it's constructed with
     matches at the specified position, but it doesn't actually consume any
-    input, and its result is None.
+    input, and its result is None. If you need access to the result, you'll
+    probably want to use Preserve instead.
     """
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, space):
-        result = self.parser.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if result:
             return match(position, None, [(position, EUnsatisfiable())])
         else:
             return failure(result.expected)
+    
+    def __repr__(self):
+        return "Present(%s)" % repr(self.parser)
+
+
+class Preserve(Parser):
+    """
+    A lookahead parser; it matches as long as the parser it's constructed with
+    matches at the specified position, but it doesn't actually consume any
+    input. Unlike Present, however, Preserve returns whatever its underlying
+    parser returned, even though it doesn't consume any input.
+    """
+    def __init__(self, parser):
+        self.parser = parser
+    
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
+        if result:
+            return match(position, result.value, [(position, EUnsatisfiable())])
+        else:
+            return failure(result.expected)
+    
+    def __repr__(self):
+        return "Present(%s)" % repr(self.parser)
 
 
 class And(Parser):
@@ -1199,18 +1328,20 @@ class And(Parser):
     considered the opposite of Except: And matches when the second parser it's
     passed also matches, while Except matches when the second parser it's
     passed does not match. Wrapping the second parser with Not can make And
-    behave as Except and vice versa.
+    behave as Except and vice versa, although using whichever one makes more
+    sense will likely lead to more informative error messages when parsing
+    fails.
     """
     def __init__(self, parser, check_parser):
         self.parser = parser
         self.check_parser = check_parser
     
-    def parse(self, text, position, space):
+    def parse(self, text, position, end, space):
         # May want to parse space to make sure the two parsers are in sync
-        result = self.parser.parse(text, position, space)
+        result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
-        check_result = self.check_arser.parse(text, position, space)
+        check_result = self.check_parser.parse(text, position, end, space)
         if not check_result:
             return failure(check_result.expected)
         return result
@@ -1228,12 +1359,15 @@ class Not(Parser):
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, space):
-        result = self.parser.parse(text, position, space)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if result:
             return failure([(position, EStringLiteral("(TBD: Not)"))])
         else:
             return match(position, None, [(position, EUnsatisfiable())])
+    
+    def __repr__(self):
+        return "Not(%s)" % repr(self.parser)
 
 
 class Regex(Parser):
@@ -1260,22 +1394,125 @@ class Regex(Parser):
     expression or a pattern compiled with Python's re.compile. If you want to
     specify flags to the regex, you'll need to compile it with re.compile, then
     pass the result into Regex.
+    
+    Unlike the behavior of normal Python regex groups, groups that did not
+    participate in a match are represented in the returned list (if
+    groups_only is not None) by the empty string instead of None. If enough
+    people want the ability for None to be used instead (and my email address
+    is in the docstring for this module, at the top, so send me an email if
+    you're one of the people that want this), I'll add a parameter that can be
+    passed to Regex to switch this back to the usual behavior of using None.
     """
     def __init__(self, regex, groups_only=None):
         self.regex = re.compile(regex)
         self.groups_only = groups_only
     
-    def parse(self, text, position, space):
-        position = parse_space(text, position, space)
-        result = self.regex.match(text, position)
-        if not result:
+    def parse(self, text, position, end, space):
+        position = parse_space(text, position, end, space)
+        regex_match = self.regex.match(text, position, end)
+        if not regex_match:
             return failure([(position, ERegex(self.regex.pattern))])
+        position = regex_match.end()
+        if self.groups_only is None:
+            result = regex_match.group()
+        elif self.groups_only is True:
+            result = list(regex_match.groups(""))
+        else:
+            result = [regex_match.group()] + list(regex_match.groups(""))
+        return match(position, result, [(position, EUnsatisfiable())])
+    
+    def __repr__(self):
+        return "Regex(%s, %s)" % (repr(self.regex.pattern), repr(self.groups_only))
+
+
+class Expected(Parser):
+    """
+    A parser that allows customization of the error message provided when the
+    parser it's created with fails. For example, let's say that you had a
+    parser that would parse numbers with decimals, such as 1.5:
+    
+    decimal = +Digit() + "." + +Digit()
+    
+    Now let's say that in your grammar, you included "true" and "false" as
+    things that could be in the same location as a decimal number:
+    
+    something = decimal | "true" | "false"
+    
+    If you call something.parse_string("bogus"), the resulting error message
+    will be:
+    
+    At position 0: expected one of "true", "false", any char in "0123456789"
+    
+    which isn't very pretty or informative. If, instead, you did this:
+    
+    decimal = +Digit() + "." + +Digit()
+    decimal = Expected(decimal, "decimal number")
+    something = decimal | "true" | "false"
+    
+    Then the error message would instead be something like:
+    
+    At position 0: expected one of "true", "false", decimal number
+    
+    which is more informative as to what's missing.
+    
+    If the parameter remove_whitespace is True when constructing an instance
+    of Expected, whitespace will be removed before calling the underlying
+    parser's parse method. This will usually make error messages more accurate
+    about the position at which this whole Expected instance was expected.
+    If it's False, whitespace will not be removed, and it will be up to the
+    underlying parser to remove it; as a result, error messages will indicate
+    the position /before/ the removed whitespace as where the error occurred,
+    which is usually not what you want.
+    """
+    def __init__(self, parser, expected_message, remove_whitespace=True):
+        self.parser = parser
+        self.expected_message = expected_message
+        self.remove_whitespace = remove_whitespace
+    
+    def parse(self, text, position, end, space):
+        if self.remove_whitespace:
+            position = parse_space(text, position, end, space)
+        result = self.parser.parse(text, position, end, space)
+        if not result:
+            return failure([(position, ECustomExpectation(self.expected_message))])
+        return result
+    
+    def __repr__(self):
+        return "Expected(%s, %s, %s" % (repr(self.parser), 
+                repr(self.expected_message), repr(self.remove_whitespace))
+
+
+class Limit(Parser):
+    """
+    A parser that imposes a limit on how much input its underlying parser can
+    consume. All parsers, when asked to parse text, are passed the position
+    that they can parse to before they have to stop; normall this is the length
+    of the string being passed in. Limit, however, allows this to be set to a
+    smaller value.
+    
+    When you construct a Limit instance, you pass in a parser that it will
+    call and the number of characters that the specified parser can consume.
+    If there aren't that many characters left in the input string, no limit is
+    placed on what the specified parser can consume.
+    """
+    def __init__(self, length, parser):
+        self.length = length
+        self.parser = parser
+    
+    def parse(self, text, position, end, whitespace):
+        limit = position + self.length
+        if limit > end:
+            limit = end
+        return self.parser.parse(text, position, limit, whitespace)
+    
+    def __repr__(self):
+        return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
 
 
 alpha_word = Word(alpha_chars)
 alphanum_word = Word(alphanum_chars)
-# Need to decide on a better name for this
-# alpha_alphanum_word = Word(alphanum_chars, init_chars=alpha_chars)
+id_word = Word(alphanum_chars, init_chars=alpha_chars)
+title_word = Word(alphanum_chars, init_chars=upper_chars)
 
 
 def flatten(value):

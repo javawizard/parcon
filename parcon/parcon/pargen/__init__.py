@@ -227,8 +227,8 @@ class First(Formatter):
 
 
 class Forward(Formatter):
-    def __init__(self):
-        self.formatter = None
+    def __init__(self, formatter=None):
+        self.formatter = formatter
     
     def format(self, input):
         if self.formatter is None:
@@ -247,6 +247,16 @@ class Is(Formatter):
     
     def format(self, input):
         if input == self.value:
+            return match("", input)
+        return failure()
+
+
+class IsExactly(Formatter):
+    def __init__(self, value):
+        self.value = value
+    
+    def format(self, input):
+        if input is self.value:
             return match("", input)
         return failure()
 
