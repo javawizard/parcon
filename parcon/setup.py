@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+
 from distutils.core import setup
 
 setup(
     name="parcon",
-    version="0.1.15",
+    version="0.1.16",
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
@@ -46,6 +48,8 @@ This expression evaluator can be used thus::
 
 I've written some posts on `my blog <http://me.opengroove.org/>`_ providing
 more Parcon examples.
+
+More information is available on `Parcon's website <http://www.opengroove.org/parcon/>`_.
 
 Parcon is currently much more comprehensively documented than Pargen is.
 Improved documentation for Pargen will come soon.

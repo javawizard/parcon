@@ -24,9 +24,11 @@ ends up translating to:
 
 x + y is the same as Then(x, y).
 x | y is the same as First(x, y).
+x - y is the same as Except(x, y).
+x & y is the same as And(x, y).
 -x is the same as Optional(x).
 +x is the same as OneOrMore(x).
-x - y is the same as Except(x, y).
+~x is the same as Discard(x).
 x[min:max] is the same as Repeat(x, min, max).
 x[some_int] is the same as Repeat(x, some_int, some_int).
 x[...] (three literal dots) is the same as ZeroOrMore(x).
@@ -88,6 +90,7 @@ Then parser) and the identity element being Return(None).
 
 import itertools
 from parcon import static
+import re
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -125,6 +128,16 @@ class EStringLiteral(Expectation):
     
     def __str__(self):
         return "EStringLiteral(%s)" % repr(self.text)
+
+class ERegex(Expectation):
+    def __init__(self, pattern_text):
+        self.pattern_text = pattern_text
+    
+    def format(self):
+        return 'regex "' + self.pattern_text + '"'
+    
+    def __str__(self):
+        return "ERegex(%s)" % repr(self.pattern_text)
 
 
 class EAnyCharIn(Expectation):
@@ -300,8 +313,22 @@ def op_getitem(parser, function):
         return ZeroOrMore(parser)
     elif isinstance(function, (int, long)):
         return Repeat(parser, function, function)
-    else:
+    elif callable(function):
         return Translate(parser, function)
+    raise Exception("Object passed to some_parser[value] must be a slice, "
+                    "an ellipsis, an int or long, or a callable object "
+                    "(such as a function or a class, or an object with "
+                    "a __call__ method)")
+
+def op_invert(parser):
+    return Discard(parser)
+
+def op_and(first, second):
+    first = promote(first)
+    second = promote(second)
+    if isinstance(first, Parser) and isinstance(second, Parser):
+        return And(first, second)
+    return NotImplemented
 
 
 class Parser(object):
@@ -369,6 +396,9 @@ class Parser(object):
     
     def __neg__(self):
         return op_neg(self)
+    
+    def __invert__(self):
+        return op_invert(self)
     
     def __str__(self):
         return self.__repr__()
@@ -1083,6 +1113,16 @@ class Chars(Parser):
     
     Bind(AnyChar(), lambda x: Chars(ord(x)))
     """
+    def __init__(self, number):
+        self.number = number
+    
+    def parse(self, text, position, space):
+        position = parse_space(text, position, space)
+        if position + self.number > len(text):
+            return failure([(len(text), EAnyChar())])
+        result = text[position:position + self.number]
+        end_position = position + self.number
+        return match(end_position, result, [(end_position, EUnsatisfiable())])
 
 
 class Word(Parser):
@@ -1150,6 +1190,86 @@ class Present(Parser):
             return match(position, None, [(position, EUnsatisfiable())])
         else:
             return failure(result.expected)
+
+
+class And(Parser):
+    """
+    A parser that matches whatever its specified parser matches as long as its
+    specified check_parser also matches at the same location. This could be
+    considered the opposite of Except: And matches when the second parser it's
+    passed also matches, while Except matches when the second parser it's
+    passed does not match. Wrapping the second parser with Not can make And
+    behave as Except and vice versa.
+    """
+    def __init__(self, parser, check_parser):
+        self.parser = parser
+        self.check_parser = check_parser
+    
+    def parse(self, text, position, space):
+        # May want to parse space to make sure the two parsers are in sync
+        result = self.parser.parse(text, position, space)
+        if not result:
+            return failure(result.expected)
+        check_result = self.check_arser.parse(text, position, space)
+        if not check_result:
+            return failure(check_result.expected)
+        return result
+    
+    def __repr__(self):
+        return "And(%s, %s)" % (repr(self.parser), repr(self.check_parser))
+
+
+class Not(Parser):
+    """
+    A parser that matches only if the parser it's created with does not. If the
+    aforementioned parser fails, then Not succeeds, consuming no input and 
+    returning None. If the aforementioned parser succeeds, then Not fails.
+    """
+    def __init__(self, parser):
+        self.parser = parser
+    
+    def parse(self, text, position, space):
+        result = self.parser.parse(text, position, space)
+        if result:
+            return failure([(position, EStringLiteral("(TBD: Not)"))])
+        else:
+            return match(position, None, [(position, EUnsatisfiable())])
+
+
+class Regex(Parser):
+    """
+    A parser that matches the specified regular expression. Its result depends
+    on the groups_only parameter passed to the constructor: if groups_only is
+    None (the default), the result is the string that the regex matches. If
+    groups_only is True, a list of the values that the groups in the regex
+    matched is true; for example, Regex("(..)(.)(....)", groups_only=True)
+    would parse the string "abcdefg" into ["ab", "c", "defg"]. If groups_only
+    is False, the string that the regex matched is provided as the first item
+    in the list, and the groups are provided as the rest of the items in the
+    list; the above example with groups_only=False would parse the string
+    "abcdefg" into ["abcdefg", "ab", "c", "defg"].
+    
+    If you can avoid using Regex without requiring exorbitant amounts of
+    additional code, it's generally best to, since error messages given by
+    combinations of Parcon parsers are generally more informative than an
+    error message providing a regex. If you really need to use Regex but you
+    still want informative error messages, you could wrap your Regex instance
+    in an instance of Expected.
+    
+    The specified regex can be either a string representing the regular
+    expression or a pattern compiled with Python's re.compile. If you want to
+    specify flags to the regex, you'll need to compile it with re.compile, then
+    pass the result into Regex.
+    """
+    def __init__(self, regex, groups_only=None):
+        self.regex = re.compile(regex)
+        self.groups_only = groups_only
+    
+    def parse(self, text, position, space):
+        position = parse_space(text, position, space)
+        result = self.regex.match(text, position)
+        if not result:
+            return failure([(position, ERegex(self.regex.pattern))])
 
 
 alpha_word = Word(alpha_chars)
