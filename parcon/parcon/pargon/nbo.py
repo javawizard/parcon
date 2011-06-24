@@ -8,5 +8,10 @@ other binary things too, though, such as length-specified strings or packets in
 protocols that have a defined length.
 
 This module will also contain formatters for all of the binary types that it
-can parse.
+can parse. In fact, I'm considering having all of the parsers be subclasses of
+parcon.pargon.ParserFormatter. The only difficulty is that it would make
+assembling formatters difficult since ParserFormatters act like parsers when
+used as arguments to operators. So this needs some thought.
+
+(if you can't tell, the nbo module is still in planning :-) )
 """

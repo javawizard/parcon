@@ -33,6 +33,7 @@ x & y is the same as And(x, y).
 ~x is the same as Discard(x).
 x[min:max] is the same as Repeat(x, min, max).
 x[some_int] is the same as Repeat(x, some_int, some_int).
+x[some_string] is the same as Tag(some_string, x).
 x[...] (three literal dots) is the same as ZeroOrMore(x).
 x[function] is the same as Translate(x, function).
 "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
@@ -93,6 +94,7 @@ Then parser) and the identity element being Return(None).
 import itertools
 from parcon import static
 import re
+import collections
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -100,6 +102,8 @@ alpha_chars = upper_chars + lower_chars
 digit_chars = "0123456789"
 alphanum_chars = alpha_chars + digit_chars
 whitespace = " \t\r\n"
+
+Pair = collections.namedtuple("Pair", "key", "value")
 
 
 class Expectation(object):
@@ -114,7 +118,7 @@ class Expectation(object):
     Expectations are used to format the error message when Parser.parse_string
     throws an exception because of a parse error.
     
-    This class should not be instantiated directly; instead, one of its various
+    This class should not be instantiated directly; one of its various
     subclasses should be used instead.
     """
     def format(self):
@@ -390,6 +394,8 @@ def op_getitem(parser, function):
         return ZeroOrMore(parser)
     elif isinstance(function, (int, long)):
         return Repeat(parser, function, function)
+    elif isinstance(function, basestring):
+        return Tag(function, parser)
     elif callable(function):
         return Translate(parser, function)
     raise Exception("Object passed to some_parser[value] must be a slice, "
@@ -1509,6 +1515,19 @@ class Limit(Parser):
         return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
 
 
+class Tag(Parser):
+    def __init__(self, tag, parser):
+        self.tag = tag
+        self.parser = parser
+    
+    def parse(self, text, position, end, whitespace):
+        result = self.parser.parse(text, position, end, whitespace)
+        if result:
+            return match(result.end, Pair(self.tag, result.value), result.expected)
+        else:
+            return failure(result.expected)
+
+
 alpha_word = Word(alpha_chars)
 alphanum_word = Word(alphanum_chars)
 id_word = Word(alphanum_chars, init_chars=alpha_chars)
@@ -1530,7 +1549,9 @@ def flatten(value):
     """
     if value is None:
         return []
-    if not isinstance(value, (list, tuple)):
+    if not (isinstance(value, list) or type(value) is tuple): # Checking for
+        # type(value) is tuple instead of isinstance(value, tuple) so that
+        # named tuples are treated as normal objects and are not expanded
         return [value]
     result = []
     for item in value:
