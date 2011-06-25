@@ -103,7 +103,7 @@ digit_chars = "0123456789"
 alphanum_chars = alpha_chars + digit_chars
 whitespace = " \t\r\n"
 
-Pair = collections.namedtuple("Pair", "key", "value")
+Pair = collections.namedtuple("Pair", ("key", "value"))
 
 
 class Expectation(object):
@@ -1516,6 +1516,37 @@ class Limit(Parser):
 
 
 class Tag(Parser):
+    """
+    A parser that "tags", so to speak, the value returned from its underlying
+    parser. Specifically, you construct a Tag instance by specifying a tag and
+    a parser, and the specified parser's return value will be wrapped in a
+    Pair(tag, return_value). For example,
+    Tag("test", AnyChar()).parse_string("a") would return Pair("test", "a").
+    
+    The reason why this is useful is that named tuples are treated as objects
+    by Parcon things like Then and the flatten function, so they will be passed
+    around as objects, but they are treated as tuples by Python's dict
+    function. This allows you to use various parsers that assemble values
+    passed through Tag, and then add [flatten][dict] onto the end of that whole
+    parser group; the result of that parser will be a dictionary containing all
+    of the tagged values, with the tags as keys. For example, a parser that
+    parses numbers such as "123.45" into a dict of the form {"integer": "123",
+    "decimal": "45"} could be written as:
+    
+    decimal_parser = Tag("integer", (+Decimal())[concat]) + Tag("decimal",
+                             Optional("." + (+Decimal())[concat], ""))
+    
+    Of course, using the short notation parser["tag"] in place of Tag("tag",
+    parser), we can reduce that further to:
+    
+    decimal_parser = (+Decimal())[concat]["integer"] + Optional("." + 
+                             (+Decimal())[concat], "")["decimal"]
+    
+    Note that the short notation of parser[tag] only works if tag is a string
+    (or a unicode instance; anything that subclasses from basestring works).
+    No other datatypes will work; if you want to use those, you'll need to use
+    Tag itself instead of the short notation.
+    """
     def __init__(self, tag, parser):
         self.tag = tag
         self.parser = parser
@@ -1546,6 +1577,9 @@ def flatten(value):
     This function is intended to be used as the function passed to Translate
     where the parser passed to Translate could produce multiple nested lists of
     tuples and lists, and a single, flat, list is desired.
+    
+    Named tuples (instances of classes created with collections.namedtuple) are
+    treated as normal object, not tuples, so they will not be flattened.
     """
     if value is None:
         return []

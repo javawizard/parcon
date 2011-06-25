@@ -4,11 +4,11 @@ from distutils.core import setup
 
 setup(
     name="parcon",
-    version="0.1.17",
+    version="0.1.18",
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
-    description="A parser combinator and formatter combinator library that's easy to use and that provides informative error messages.",
+    description="A parser/formatter library that's easy to use and that provides informative error messages.",
     long_description=
 """
 Parcon is a parser combinator library. It can be used for parsing both normal
@@ -21,8 +21,16 @@ into various objects, Pargen is used to format objects into text. As an
 example, if you wanted to reimplement Python's json module, you would use
 Parcon to implement json.loads and Pargen to implement json.dumps.
 
+Static, which is also provided as a submodule of Parcon, is a static typing
+library and Python object pattern library. It lets you build patterns that
+match Python objects based on their type, their attributes, certain properties
+such as whether or not the object is a sequence, the types that make up the
+object's values if the object is a sequence, and so on.
+
 All of the classes, and most of the functions, in Parcon are comprehensively
 documented. The best place to look for help is in Parcon's module documentation.
+Pargen's classes and functions and Static's classes and functions are also 
+documented, though not quite as well as Parcon's are at present.
 
 Here's an example of a simple expression evaluator written using Parcon::
 
@@ -46,13 +54,11 @@ This expression evaluator can be used thus::
     print expr.parse_string("(5+3)*4") # prints 32
     print expr.parse_string("10/4") # prints 2.5
 
-I've written some posts on `my blog <http://me.opengroove.org/>`_ providing
-more Parcon examples.
+More examples can be found on `Parcon's blog <http://blog.parcon.opengroove.org>`_,
+and more information in general can be found at `Parcon's website <http://parcon.opengroove.org>`_.
 
-More information is available on `Parcon's website <http://www.opengroove.org/parcon/>`_.
-
-Parcon is currently much more comprehensively documented than Pargen is.
-Improved documentation for Pargen will come soon.
+Parcon is currently much more comprehensively documented than Pargen and Static
+are. Improved documentation for Pargen and Static will come soon.
 """,
     classifiers=[
         "Programming Language :: Python",
