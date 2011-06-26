@@ -1591,6 +1591,20 @@ def flatten(value):
     return result
 
 
+def concat(value, delimiter=""):
+    """
+    Walks through value, which should be a list or a tuple potentially
+    containing other lists/tuples, and extracts all strings from it (and
+    recursively from any other lists/tuples that it contains). These strings
+    are then concatenated using the specified delimiter.
+    
+    Right now, this delegates to flatten to flatten out the specified value. It
+    then iterates over all of the items in the resulting list and concatenates
+    all of them that are strings.
+    """
+    return delimiter.join([s for s in flatten(value) if isinstance(s, basestring)])
+
+
 alpha_word = Word(alpha_chars)
 alphanum_word = Word(alphanum_chars)
 id_word = Word(alphanum_chars, init_chars=alpha_chars)
