@@ -321,6 +321,9 @@ def format_failure(expected):
         expectations = [e for p, e in expected if p == max_position]
     # We've got the list. Now we'll remove duplicates...
     expectations = list(set(expectations))
+    # ...sort the list so that the output order is the same each time (which is
+    # useful for making doctests actually work)...
+    expectations.sort()
     # ...and then format the error message, and we're done!
     return "At position %s: expected one of %s" % (max_position, ", ".join([e.format() for e in expectations]))
 
