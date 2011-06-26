@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name="parcon",
-    version="0.1.18",
+    version="0.1.19",
     author="Alexander Boyd",
     author_email="alex@opengroove.org",
     url="http://www.opengroove.org/parcon/",
