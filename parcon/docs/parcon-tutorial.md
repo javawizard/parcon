@@ -1,6 +1,6 @@
 ### Introduction
 
-**Parcon** is a parser combinator library written by Alexander Boyd. It's designed to be easy to use, easy to learn, and to provide informative error messages.
+**Parcon** is a parser combinator library written by Alexander Boyd. It's designed to be fast, easy to use, easy to learn, and to provide informative error messages.
 
 **Pargen**, which is provided as a submodule of Parcon, is a formatter combinator
 library. It's much the opposite of Parcon: while Parcon is used to parse text
@@ -14,18 +14,6 @@ match Python objects based on their type, their attributes, certain properties
 such as whether or not the object is a sequence, the types that make up the
 object's values if the object is a sequence, and so on.
 
-### Resources
-
-* **Pydoc documentation for Parcon** is available [here](parcon.html).
-* **Pydoc documentation for Pargen** is available [here](parcon.pargen.html).
-* **Pydoc documentation for Static** is available [here](parcon.static.html).
-* **Posts on Alex's blog** relating to Parcon can be found [here](http://me.opengroove.org/search/label/parcon).
-* **Information on downloading and installing Parcon** can be found [here](parcon-download.html).
-
-Some example Parcon grammars (along with explanations of what they do) are available [here](parcon-examples.html). More example Parcon grammars are available in various Parcon posts on Alex's blog, mentioned above.
-Example Pargen grammars are provided in the Pargen pydoc documentation, a link
-to which is provided above.
-
 ### Donations
 
 Parcon is developed by Alex, a student who develops Parcon on time that could otherwise be spent working at his job to earn money to pay for college. Donations are therefore greatly appreciated.
@@ -38,82 +26,21 @@ Parcon is developed by Alex, a student who develops Parcon on time that could ot
 	</tr>
 </table>
 
-### A short and in-progress tutorial for Parcon
+### Download
 
-*One important note here: for the rest of this tutorial, we'll assume that you've run the following Python statement:*
+See <a href="parcon-download.html">here</a> for information on how to download/install Parcon.
 
-	from parcon import *
+### Documentation
 
-*so that all of the parcon functions and classes are available in the local namespace.*
+The main source of doumentation for Parcon is its <a href="parcon.html">module documentation</a>. The same is true for <a href="parcon.pargen.html">Pargen</a> and <a href="parcon.static.html">Static</a>, although they're not quite as well documented as Parcon is.
 
-Parcon is a Python parser library that uses combinatorial parsing. There is no separate language for declaring grammars; every Parcon grammar is written simply as a series of Python expressions using a number of classes that Parcon provides to represent grammars.
+### Blog
 
-Each of these classes is a parser by itself. Every parser class parses a portion of a string and, if it succeeds, returns some parser-specific object representing the result.
+<a href="http://blog.parcon.opengroove.org">The Parcon Blog</a> is Parcon's official blog.
 
-Each parser class is a subclass of Parser, and as such, each parser class provides some important methods:
+### Examples
 
-* **parse_string**: This is the method that you'll likely use most. You typically call it like parser.parse_string("some text to parse"), and it either returns the result of the parser or throws an exception if the parser didn't match the input. There are two additional arguments to this method that will be discussed later.
-* **parse**: You typically won't use this method yourself, but you'll need to know about it if you decide to implement your own parser for whatever reason. It's the method that actually knows how to parse text. Each parser provides an implementation of this method. It will be discussed in more detail later.
-
-Methods for parsing input from files or sockets will be present in a future release of Parcon.
-
-### Literal and SignificantLiteral: literal string parsers
-
-Let's look at one of the most basic parsers that Parcon provides: Literal. This parser is constructed with a literal string. It matches only if the input is that string, and it returns None. A similar class, SignificantLiteral, returns the literal string itself instead of None.
-
-So, our first example:
-
-	expr = Literal("hello")
-
-expr is now a parser that will parse any piece of text that is exactly "hello".
-
-### First: tries multiple parsers until one succeeds
-
-This isn't really much use to us yet, so let's look at another parser: First. This parser is constructed with any number of other parsers. It tries to match the first parser first. If it matches, it returns whatever that parser's result was. Otherwise, it tries the second parser, and so on. If none of the parsers match, First fails.
-
-Using this, we can create a parser that matches either "hello" or "bye":
-
-	expr = First(Literal("hello"), Literal("bye"))
-
-If we call expr.parse_string("hello") or expr.parse_string("bye"), the result will be None. If we call expr.parse_string with anything else, an exception will be thrown indicating the problem. If we change Literal to SignificantLiteral:
-
-	expr = First(SignificantLiteral("hello"), SignificantLiteral("bye"))
-
-then the result of expr.parse_string("hello") will be "hello", and similar for "bye".
-
-### Interlude: operator overloading
-
-Up until now, actual Parcon classes have been used to create parsers. Every parser overloads some operators, though, which allow us to create parsers in a less verbose manner. These operators are available:
-
-* **x + y** is the same as **Then(x, y)**.
-* **x | y** is the same as **First(x, y)**.
-* **x - y** is the same as **Except(x, y)**.
-* **x & y** is the same as **And(x, y)**.
-* **-x** is the same as **Optional(x)**.
-* **+x** is the same as **OneOrMore(x)**.
-* **~x** is the same as **Discard(x)**.
-* **x[min:max]** is the same as **Repeat(x, min, max)**.
-* **x[some_int]** is the same as **Repeat(x, some_int, some_int)**.
-* **x[some_string]** is the same as **Tag(some_string, x)**.
-* **x[...]** (three literal dots) is the same as **ZeroOrMore(x)**.
-* **x[function]** is the same as **Translate(x, function)**.
-* **"x" op some_parser** or **some_parser op "x"** is the same as **Literal("x") op some_parser** or **some_parser op Literal("x")**, respectively.
-
-You've only seen First thus far; the rest of these parsers will be discussed later. If the literal string is used on one side of an operator where a parser is used on the other side, the literal string will be wrapped with Literal automatically. Some other parsers (such as Keyword) will also automatically wrap literal string passed into them with instances of Literal.
-
-### Then: one parser followed by another
-
-Going back to our hello/bye example, let's say that we wanted to be able to parse "hello there" and "bye there", but we want the result of our parser to still be "hello" or "bye", so we can't just add " there" to the end of each SignificantLiteral. We can use Then to do this. Then attempts to match its first parser. If it succeeds, it matches its second parser where the first one stopped. If either parser fails, Then fails. If both parsers succeed, the result is a tuple containing the results, with two exceptions: first, if either of Then's parsers also produce a tuple, the resulting tuples are flattened together, and second, if either of Then's parsers produces None, the result is simply the result of the parser that did not, or None if both parsers did.
-
-So let's try it out. We'll be using | to represent First and + to represent Then, as outlined in the previous section.
-
-	expr = (SignificantLiteral("hello") | SignificantLiteral("bye")) + " there"
-
-This parser will match "hello there" or "bye there", and will return "hello" or "bye", respectively. All other strings will result in an exception.
-
-### Further reading
-
-Each parser class in the Parcon library has a docstring specifying what it does and how to use it. That's probably the best place to start with all of the other parsers.
+Parcon examples are provided in Parcon's <a href="parcon.html">module documentation</a> and on <a href="http://blog.parcon.opengroove.org">The Parcon Blog</a>.
 
 
 
