@@ -28,7 +28,7 @@ Parcon is developed by Alex, a student who develops Parcon on time that could ot
 
 ### Download
 
-See <a href="parcon-download.html">here</a> for information on how to download/install Parcon (which will include Pargen and Static).
+See <a href="parcon-download.html">the downloads page</a> for information on how to download/install Parcon, Pargen, and Static.
 
 ### Documentation
 
