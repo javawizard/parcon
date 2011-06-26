@@ -1536,14 +1536,14 @@ class Tag(Parser):
     parses numbers such as "123.45" into a dict of the form {"integer": "123",
     "decimal": "45"} could be written as:
     
-    decimal_parser = Tag("integer", (+Decimal())[concat]) + Tag("decimal",
-                             Optional("." + (+Decimal())[concat], ""))
+    decimal_parser = Tag("integer", (+Digit())[concat]) + Tag("decimal",
+                             Optional("." + (+Digit())[concat], ""))
     
     Of course, using the short notation parser["tag"] in place of Tag("tag",
     parser), we can reduce that further to:
     
-    decimal_parser = (+Decimal())[concat]["integer"] + Optional("." + 
-                             (+Decimal())[concat], "")["decimal"]
+    decimal_parser = (+Digit())[concat]["integer"] + Optional("." + 
+                             (+Digit())[concat], "")["decimal"]
     
     Note that the short notation of parser[tag] only works if tag is a string
     (or a unicode instance; anything that subclasses from basestring works).
