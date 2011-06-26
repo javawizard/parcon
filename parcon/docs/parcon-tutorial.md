@@ -42,6 +42,10 @@ The main source of doumentation for Parcon is its <a href="parcon.html">module d
 
 Parcon examples are provided in Parcon's <a href="parcon.html">module documentation</a> and on <a href="http://blog.parcon.opengroove.org">The Parcon Blog</a>.
 
+### Source
+
+Parcon is open-source, released under the terms of the GNU Lesser General Public License. Source code is available on GitHub <a href="https://github.com/javawizard/Parcon">here</a>.
+
 
 
 
