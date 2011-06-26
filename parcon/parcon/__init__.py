@@ -41,11 +41,11 @@ x[function] is the same as Translate(x, function).
 
 A simple expression evaluator written using Parcon:
 
-from parcon import *
+from parcon import rational, Forward, InfixExpr
 from decimal import Decimal
 import operator
 expr = Forward()
-number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][Decimal]
+number = rational[Decimal]
 term = number | "(" + expr + ")"
 term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
 term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
