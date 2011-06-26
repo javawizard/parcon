@@ -11,17 +11,17 @@ setup(
     description="A parser/formatter library that's easy to use and that provides informative error messages.",
     long_description=
 """
-Parcon is a parser combinator library. It can be used for parsing both normal
+**Parcon** is a parser combinator library. It can be used for parsing both normal
 text and binary data. It's designed to be easy to use and to provide informative
 error messages.
 
-Pargen, which is provided as a submodule of Parcon, is a formatter combinator
+**Pargen**, which is provided as a submodule of Parcon, is a formatter combinator
 library. It's much the opposite of Parcon: while Parcon is used to parse text
 into various objects, Pargen is used to format objects into text. As an
 example, if you wanted to reimplement Python's json module, you would use
 Parcon to implement json.loads and Pargen to implement json.dumps.
 
-Static, which is also provided as a submodule of Parcon, is a static typing
+**Static**, which is also provided as a submodule of Parcon, is a static typing
 library and Python object pattern library. It lets you build patterns that
 match Python objects based on their type, their attributes, certain properties
 such as whether or not the object is a sequence, the types that make up the
@@ -34,11 +34,11 @@ documented, though not quite as well as Parcon's are at present.
 
 Here's an example of a simple expression evaluator written using Parcon::
 
-    from parcon import *
+    from parcon import rational, Forward, InfixExpr
     from decimal import Decimal
     import operator
     expr = Forward()
-    number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][Decimal]
+    number = rational[Decimal]
     term = number | "(" + expr + ")"
     term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
     term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])

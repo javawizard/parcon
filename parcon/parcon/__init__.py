@@ -1559,12 +1559,6 @@ class Tag(Parser):
             return failure(result.expected)
 
 
-alpha_word = Word(alpha_chars)
-alphanum_word = Word(alphanum_chars)
-id_word = Word(alphanum_chars, init_chars=alpha_chars)
-title_word = Word(alphanum_chars, init_chars=upper_chars)
-
-
 def flatten(value):
     """
     A function that recursively flattens the specified value. Tuples and lists
@@ -1592,9 +1586,15 @@ def flatten(value):
         item = flatten(item)
         result += list(item)
     return result
- 
 
 
+alpha_word = Word(alpha_chars)
+alphanum_word = Word(alphanum_chars)
+id_word = Word(alphanum_chars, init_chars=alpha_chars)
+title_word = Word(alphanum_chars, init_chars=upper_chars)
+
+integer = (+Digit())["".join]
+rational = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join]
 
 
 

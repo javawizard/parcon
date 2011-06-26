@@ -1,17 +1,17 @@
 This file contains a bunch of examples of things you can do with Parcon. More
 examples are present in the [Parcon module documentation](parcon.html).
 
-## Expression evaluator
+### Expression evaluator
 
-	from parcon import *
-	from decimal import Decimal
-	import operator
-	expr = Forward()
-	number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][Decimal]
-	term = number | "(" + expr + ")"
-	term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
-	term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
-	expr << term
+    from parcon import rational, Forward, InfixExpr
+    from decimal import Decimal
+    import operator
+    expr = Forward()
+    number = rational[Decimal]
+    term = number | "(" + expr + ")"
+    term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
+    term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
+    expr << term
 	
 This implements a simple expression evaluator, and shows how Parcon allows the
 evaluation logic to be specified as part of the parser. It uses Python's

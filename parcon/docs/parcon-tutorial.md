@@ -87,10 +87,15 @@ Up until now, actual Parcon classes have been used to create parsers. Every pars
 
 * **x + y** is the same as **Then(x, y)**.
 * **x | y** is the same as **First(x, y)**.
+* **x - y** is the same as **Except(x, y)**.
+* **x & y** is the same as **And(x, y)**.
 * **-x** is the same as **Optional(x)**.
 * **+x** is the same as **OneOrMore(x)**.
-* **x - y** is the same as **Except(x, y)**.
+* **~x** is the same as **Discard(x)**.
 * **x[min:max]** is the same as **Repeat(x, min, max)**.
+* **x[some_int]** is the same as **Repeat(x, some_int, some_int)**.
+* **x[some_string]** is the same as **Tag(some_string, x)**.
+* **x[...]** (three literal dots) is the same as **ZeroOrMore(x)**.
 * **x[function]** is the same as **Translate(x, function)**.
 * **"x" op some_parser** or **some_parser op "x"** is the same as **Literal("x") op some_parser** or **some_parser op Literal("x")**, respectively.
 
