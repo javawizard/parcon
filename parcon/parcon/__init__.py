@@ -13,12 +13,22 @@ To get started, look at all of the subclasses of the Parser class, and
 specifically, look at Parser's parse_string method. And perhaps try
 running this:
 
-parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
-print parser.parse_string("(abbaabaab)")
-print parser.parse_string("(a)")
-print parser.parse_string("") # should raise an exception
-print parser.parse_string("(a") # should raise an exception
-print parser.parse_string("(ababacababa)") # should raise an exception
+>>> parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
+>>> parser.parse_string("(abbaabaab)")
+Traceback (most recent call last):
+Exception: Parse failure: At position 3: expected one of ")", "a"
+>>> parser.parse_string("(a)")
+Traceback (most recent call last):
+Exception: Parse failure: At position 2: expected one of "b"
+>>> parser.parse_string("") # should raise an exception
+Traceback (most recent call last):
+Exception: Parse failure: At position 0: expected one of "("
+>>> parser.parse_string("(a") # should raise an exception
+Traceback (most recent call last):
+Exception: Parse failure: At position 2: expected one of "b"
+>>> parser.parse_string("(ababacababa)") # should raise an exception
+Traceback (most recent call last):
+Exception: Parse failure: At position 6: expected one of "b"
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -41,44 +51,51 @@ x[function] is the same as Translate(x, function).
 
 A simple expression evaluator written using Parcon:
 
-from parcon import rational, Forward, InfixExpr
-from decimal import Decimal
-import operator
-expr = Forward()
-number = rational[Decimal]
-term = number | "(" + expr + ")"
-term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
-term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
-expr << term
+>>> from parcon import rational, Forward, InfixExpr
+>>> from decimal import Decimal
+>>> import operator
+>>> expr = Forward()
+>>> number = rational[Decimal]
+>>> term = number | "(" + expr + ")"
+>>> term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
+>>> term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
+>>> expr << term
 
 Some example expressions that can now be evaluated using the above
 simple expression evaluator:
 
-print expr.parse_string("1+2") # prints 3
-print expr.parse_string("1+2+3") # prints 6
-print expr.parse_string("1+2+3+4") # prints 10
-print expr.parse_string("3*4") # prints 12
-print expr.parse_string("5+3*4") # prints 17
-print expr.parse_string("(5+3)*4") # prints 32
-print expr.parse_string("10/4") # prints 2.5
+>>> expr.parse_string("1+2")
+Decimal('3')
+>>> expr.parse_string("1+2+3")
+Decimal('6')
+>>> expr.parse_string("1+2+3+4")
+Decimal('10')
+>>> expr.parse_string("3*4")
+Decimal('12')
+>>> expr.parse_string("5+3*4")
+Decimal('17')
+>>> expr.parse_string("(5+3)*4")
+Decimal('32')
+>>> expr.parse_string("10/4")
+Decimal('2.5')
 
 Another example use of Parcon, this one being a JSON parser (essentially
 a reimplementation of Python's json.dumps, without all of the fancy
 arguments that it supports, and currently without support for backslash
 escapes in JSON string literals):
 
-from parcon import *
-import operator
-cat_dicts = lambda x, y: dict(x.items() + y.items())
-json = Forward()
-number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][float]
-boolean = Literal("true")[lambda x: True] | Literal("false")[lambda x: False]
-string = ('"' + Exact(ZeroOrMore(AnyChar() - CharIn('\\"'))) +  '"')["".join]
-null = Literal("null")[lambda x: None]
-pair = (string + ":" + json[lambda x: (x,)])[lambda x: {x[0]: x[1]}]
-json_object = ("{" + Optional(InfixExpr(pair, [(",", cat_dicts)]), {}) + "}")
-json_list = ("[" + Optional(InfixExpr(json[lambda x: [x]], [(",", operator.add)]), []) + "]")
-json << (json_object | json_list | string | boolean | null | number)
+>>> from parcon import *
+>>> import operator
+>>> cat_dicts = lambda x, y: dict(x.items() + y.items())
+>>> json = Forward()
+>>> number = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join][float]
+>>> boolean = Literal("true")[lambda x: True] | Literal("false")[lambda x: False]
+>>> string = ('"' + Exact(ZeroOrMore(AnyChar() - CharIn('\\"'))) +  '"')["".join]
+>>> null = Literal("null")[lambda x: None]
+>>> pair = (string + ":" + json[lambda x: (x,)])[lambda x: {x[0]: x[1]}]
+>>> json_object = ("{" + Optional(InfixExpr(pair, [(",", cat_dicts)]), {}) + "}")
+>>> json_list = ("[" + Optional(InfixExpr(json[lambda x: [x]], [(",", operator.add)]), []) + "]")
+>>> json << (json_object | json_list | string | boolean | null | number)
 
 Thereafter, json.parse_string(text) can be used as a replacement for
 Python's json.loads.
@@ -901,16 +918,17 @@ class Exact(Parser):
     For example, the following parser, intended to parse string literals,
     demonstrates the problem:
     
-    stringLiteral = '"' + ZeroOrMore(AnyChar() - '"') + '"'
-    result = stringLiteral.parse_string('"Hello, great big round world"')
+    >>> stringLiteral = '"' + ZeroOrMore(AnyChar() - '"')["".join] + '"'
+    >>> stringLiteral.parse_string('"Hello, great big round world"')
+    'Hello,greatbigroundworld'
     
-    After running that, result would have the value "Hello,greatbigroundworld".
     This is because the whitespace parser (which defaults to Whitespace())
     consumed all of the space in the string literal. This can, however, be
     rewritten using Exact to mitigate this problem:
 
-    stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"')) + '"'
-    result = stringLiteral.parse_string('"Hello, great big round world"')
+    >>> stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"'))["".join] + '"'
+    >>> stringLiteral.parse_string('"Hello, great big round world"')
+    'Hello, great big round world'
     
     This parser produces the correct result, 'Hello, great big round world'.
     """
@@ -1392,6 +1410,9 @@ class Regex(Parser):
     list; the above example with groups_only=False would parse the string
     "abcdefg" into ["abcdefg", "ab", "c", "defg"].
     
+    >>> Regex("(..)(.)(....)", groups_only=True).parse_string("abcdefg")
+    ['ab', 'c', 'defg']
+    
     If you can avoid using Regex without requiring exorbitant amounts of
     additional code, it's generally best to, since error messages given by
     combinations of Parcon parsers are generally more informative than an
@@ -1440,27 +1461,31 @@ class Expected(Parser):
     parser it's created with fails. For example, let's say that you had a
     parser that would parse numbers with decimals, such as 1.5:
     
-    decimal = +Digit() + "." + +Digit()
+    >>> decimal = +Digit() + "." + +Digit()
     
     Now let's say that in your grammar, you included "true" and "false" as
     things that could be in the same location as a decimal number:
     
-    something = decimal | "true" | "false"
+    >>> something = decimal | "true" | "false"
     
     If you call something.parse_string("bogus"), the resulting error message
     will be:
     
-    At position 0: expected one of "true", "false", any char in "0123456789"
+    >>> something.parse_string("bogus")
+    Traceback (most recent call last):
+    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "true", "false"
     
     which isn't very pretty or informative. If, instead, you did this:
     
-    decimal = +Digit() + "." + +Digit()
-    decimal = Expected(decimal, "decimal number")
-    something = decimal | "true" | "false"
+    >>> decimal = +Digit() + "." + +Digit()
+    >>> decimal = Expected(decimal, "decimal number")
+    >>> something = decimal | "true" | "false"
     
     Then the error message would instead be something like:
     
-    At position 0: expected one of "true", "false", decimal number
+    >>> something.parse_string("bogus")
+    Traceback (most recent call last):
+    Exception: Parse failure: At position 0: expected one of decimal number, "true", "false"
     
     which is more informative as to what's missing.
     
@@ -1524,7 +1549,9 @@ class Tag(Parser):
     parser. Specifically, you construct a Tag instance by specifying a tag and
     a parser, and the specified parser's return value will be wrapped in a
     Pair(tag, return_value). For example,
-    Tag("test", AnyChar()).parse_string("a") would return Pair("test", "a").
+    
+    >>> Tag("test", AnyChar()).parse_string("a")
+    Pair(key='test', value='a')
     
     The reason why this is useful is that named tuples are treated as objects
     by Parcon things like Then and the flatten function, so they will be passed
@@ -1536,13 +1563,13 @@ class Tag(Parser):
     parses numbers such as "123.45" into a dict of the form {"integer": "123",
     "decimal": "45"} could be written as:
     
-    decimal_parser = Tag("integer", (+Digit())[concat]) + Tag("decimal",
+    >>> decimal_parser = Tag("integer", (+Digit())[concat]) + Tag("decimal", \
                              Optional("." + (+Digit())[concat], ""))
     
     Of course, using the short notation parser["tag"] in place of Tag("tag",
     parser), we can reduce that further to:
     
-    decimal_parser = (+Digit())[concat]["integer"] + Optional("." + 
+    >>> decimal_parser = (+Digit())[concat]["integer"] + Optional("." + \
                              (+Digit())[concat], "")["decimal"]
     
     Note that the short notation of parser[tag] only works if tag is a string

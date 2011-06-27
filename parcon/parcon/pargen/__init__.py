@@ -4,21 +4,21 @@ while parcon parses text into objects, pargen formats objects into text.
 I'll get more documentation up on here soon, but for now, here's a JSON
 formatter (essentially a simplified reimplementation of Python's json.dumps):
 
-from parcon.pargen import *
-from decimal import Decimal
-json = Forward()
-number = Type(float, int, long, Decimal) & String()
-boolean = Type(bool) & ((Is(True) & "true") | (Is(False) & "false"))
-null = Is(None) & "null"
-string = Type(basestring) & '"' + String() + '"'
-json_list = Type(list, tuple) & ("[" + ForEach(json, ", ") + "]")
-json_map =Type(dict) &  ("{" + ForEach(Head(json) + ": " + Tail(json), ", ") + "}")
-json << (boolean | number | null | string | json_list | json_map)
+>>> from parcon.pargen import *
+>>> from decimal import Decimal
+>>> json = Forward()
+>>> number = Type(float, int, long, Decimal) & String()
+>>> boolean = Type(bool) & ((Is(True) & "true") | (Is(False) & "false"))
+>>> null = Is(None) & "null"
+>>> string = Type(basestring) & '"' + String() + '"'
+>>> json_list = Type(list, tuple) & ("[" + ForEach(json, ", ") + "]")
+>>> json_map =Type(dict) &  ("{" + ForEach(Head(json) + ": " + Tail(json), ", ") + "}")
+>>> json << (boolean | number | null | string | json_list | json_map)
 
 You can then do things like:
 
->>> print json.format([True,1,{"2":3,"4":None},5,None,False,"hello"]).text
-[true, 1, {"2": 3, "4": null}, 5, null, false, "hello"]
+>>> json.format([True,1,{"2":3,"4":None},5,None,False,"hello"]).text
+'[true, 1, {"2": 3, "4": null}, 5, null, false, "hello"]'
 
 You'll probably want to take a look at the Formatter class. It's the "main"
 class for pargen, analogous to parcon.Parser. It contains some module
@@ -256,9 +256,9 @@ class Head(_ListExtremity):
     first. In this way, repeated invocations of Head remove items from the
     front of the list, so, for example, the formatter:
     
-    first_three = Head(String()) + Head(String()) + Head(String())
-    
-    when called with "12345" as input would produce the string "123".
+    >>> first_three = Head(String()) + Head(String()) + Head(String())
+    >>> first_three.format("12345").text
+    '123'
     """
     _value_function = lambda self, x: x[0]
     _remainder_function = lambda self, x: x[1:]
@@ -278,9 +278,9 @@ class Front(_ListExtremity):
     Same as Head, but the remainder of this parser is exactly the value passed
     to it, I.E. it doesn't consume any input. Thus the formatter:
     
-    first_three_times = Front(String()) + Front(String()) + Front(String())
-    
-    when called with "12345" as input would produce the string "111".
+    >>> first_three_times = Front(String()) + Front(String()) + Front(String())
+    >>> first_three_times.format("12345").text
+    '111'
     """
     _value_function = lambda self, x: x[0]
     _remainder_function = lambda self, x: x
@@ -321,7 +321,7 @@ class And(Formatter):
     This could be used with Type, for example, to make a certain formatter only
     succeed if its input is of a specific type; for example:
     
-    int_formatter = Type(int, long) & String()
+    >>> int_formatter = Type(int, long) & String()
     
     would be a formatter that formats ints and longs as per the String
     formatter but that fails if any other type is passed to it.
