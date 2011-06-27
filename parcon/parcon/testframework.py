@@ -1,4 +1,6 @@
 
+from traceback import print_exc
+
 class TestException(Exception):
     pass
 
@@ -24,3 +26,44 @@ def check_raises(*args, **kwargs):
             raise TestException(str(function) + " was supposed to raise an " + 
                                 "exception of type " + str(exception_type) +
                                 " but raised " + str(e) + " instead")
+
+
+def subclasses_in_module(c, modules=None, original=True):
+    result = []
+    if original:
+        if modules is None or c.__module__ in modules:
+            result.append(c)
+    subclasses = c.__subclasses__()
+    for subclass in subclasses:
+        result += subclasses_in_module(subclass, modules)
+
+
+class TestSuite(object):
+    def __init__(self):
+        self.tests = []
+        self.targets = set()
+    
+    def __call__(self, target):
+        def decorator(function):
+            self.tests.append(function)
+            self.targets.add(target)
+            return function
+        return decorator
+    
+    def warn_missing_targets(self, targets):
+        if len(targets - self.targets) > 0:
+            print "WARNING: missing tests for " + str(targets - self.targets)
+    
+    def run_tests(self):
+        for test in self.tests:
+            try:
+                test()
+                print "TEST PASSED:  " + str(test)
+            except:
+                print "TEST FAILED:  " + str(test)
+                print "Exception for the above failure:"
+                print_exc()
+
+
+
+

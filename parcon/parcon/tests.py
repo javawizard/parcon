@@ -14,6 +14,9 @@ def test(test_class):
         return function
     return wrapper
 
+def run_tests():
+    pass
+
 
 
 
