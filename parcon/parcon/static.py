@@ -291,6 +291,18 @@ class Positional(StaticType):
         return True
 
 
+class Is(StaticType):
+    """
+    A static type that matches a value if the value is equal, as determined by
+    the == operator, to a specified value.
+    """
+    def __init__(self, value):
+        self.value = value
+    
+    def matches(self, value):
+        return self.value == value
+
+
 class Everything(StaticType):
     """
     A static type that matches all values.
