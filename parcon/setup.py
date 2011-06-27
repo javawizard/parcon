@@ -35,10 +35,9 @@ documented, though not quite as well as Parcon's are at present.
 Here's an example of a simple expression evaluator written using Parcon::
 
     from parcon import rational, Forward, InfixExpr
-    from decimal import Decimal
     import operator
     expr = Forward()
-    number = rational[Decimal]
+    number = rational[float]
     term = number | "(" + expr + ")"
     term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
     term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
