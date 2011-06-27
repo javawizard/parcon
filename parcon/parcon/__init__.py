@@ -13,22 +13,20 @@ To get started, look at all of the subclasses of the Parser class, and
 specifically, look at Parser's parse_string method. And perhaps try
 running this:
 
->>> parser = "(" + ZeroOrMore(SignificantLiteral("a") + SignificantLiteral("b")) + ")"
+>>> parser = "(" + ZeroOrMore(SignificantLiteral("a") | SignificantLiteral("b")) + ")"
 >>> parser.parse_string("(abbaabaab)")
-Traceback (most recent call last):
-Exception: Parse failure: At position 3: expected one of ")", "a"
+['a', 'b', 'b', 'a', 'a', 'b', 'a', 'a', 'b']
 >>> parser.parse_string("(a)")
-Traceback (most recent call last):
-Exception: Parse failure: At position 2: expected one of "b"
->>> parser.parse_string("") # should raise an exception
+['a']
+>>> parser.parse_string("")
 Traceback (most recent call last):
 Exception: Parse failure: At position 0: expected one of "("
->>> parser.parse_string("(a") # should raise an exception
+>>> parser.parse_string("(a")
 Traceback (most recent call last):
-Exception: Parse failure: At position 2: expected one of "b"
->>> parser.parse_string("(ababacababa)") # should raise an exception
+Exception: Parse failure: At position 2: expected one of ")", "a", "b"
+>>> parser.parse_string("(ababacababa)")
 Traceback (most recent call last):
-Exception: Parse failure: At position 6: expected one of "b"
+Exception: Parse failure: At position 6: expected one of ")", "b", "a"
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -52,10 +50,9 @@ x[function] is the same as Translate(x, function).
 A simple expression evaluator written using Parcon:
 
 >>> from parcon import rational, Forward, InfixExpr
->>> from decimal import Decimal
 >>> import operator
 >>> expr = Forward()
->>> number = rational[Decimal]
+>>> number = rational[float]
 >>> term = number | "(" + expr + ")"
 >>> term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
 >>> term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
@@ -65,19 +62,19 @@ Some example expressions that can now be evaluated using the above
 simple expression evaluator:
 
 >>> expr.parse_string("1+2")
-Decimal('3')
+3.0
 >>> expr.parse_string("1+2+3")
-Decimal('6')
+6.0
 >>> expr.parse_string("1+2+3+4")
-Decimal('10')
+10.0
 >>> expr.parse_string("3*4")
-Decimal('12')
+12.0
 >>> expr.parse_string("5+3*4")
-Decimal('17')
+17.0
 >>> expr.parse_string("(5+3)*4")
-Decimal('32')
+32.0
 >>> expr.parse_string("10/4")
-Decimal('2.5')
+2.5
 
 Another example use of Parcon, this one being a JSON parser (essentially
 a reimplementation of Python's json.dumps, without all of the fancy
@@ -1473,7 +1470,7 @@ class Expected(Parser):
     
     >>> something.parse_string("bogus")
     Traceback (most recent call last):
-    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "true", "false"
+    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "false", "true"
     
     which isn't very pretty or informative. If, instead, you did this:
     
