@@ -89,6 +89,9 @@ class StaticType(object):
             raise StaticTypeError("Value " + str(value) + " is not of type " + 
             str(self));
     
+    def __str__(self):
+        raise Exception(str(type(self)) + " does not provide __str__")
+    
     def __repr__(self):
         return self.__str__()
 
@@ -289,6 +292,9 @@ class Positional(StaticType):
             if not t.matches(v):
                 return False
         return True
+    
+    def __str__(self):
+        return "Positional(%s)" % ", ".join(str(t) for t in self.types)
 
 
 class Is(StaticType):
