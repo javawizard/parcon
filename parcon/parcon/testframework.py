@@ -19,13 +19,14 @@ def check_raises(*args, **kwargs):
     exception_type = args[0]
     function = args[1]
     try:
-        function(*args, **kwargs)
+        function(*args[2:], **kwargs)
         raise TestException(str(function) + " failed to raise " + str(exception_type))
     except Exception as e:
         if not isinstance(e, exception_type):
+            print_exc()
             raise TestException(str(function) + " was supposed to raise an " + 
                                 "exception of type " + str(exception_type) +
-                                " but raised " + str(e) + " instead")
+                                " but raised " + str(type(e)) + " instead")
 
 
 def subclasses_in_module(c, modules=None, original=True):
@@ -36,6 +37,7 @@ def subclasses_in_module(c, modules=None, original=True):
     subclasses = c.__subclasses__()
     for subclass in subclasses:
         result += subclasses_in_module(subclass, modules)
+    return result
 
 
 class TestSuite(object):
@@ -47,23 +49,29 @@ class TestSuite(object):
         def decorator(function):
             self.tests.append(function)
             self.targets.add(target)
+            function.testing_target = target
             return function
         return decorator
     
     def warn_missing_targets(self, targets):
         if len(targets - self.targets) > 0:
-            print "WARNING: missing tests for " + str(targets - self.targets)
+            print "WARNING: missing tests for " + str(list(targets - self.targets))
+            print "-" * 75
     
     def run_tests(self):
         passed = 0
         failed = 0
         for test in self.tests:
+            target = getattr(test, "testing_target", None)
+            target_desc = str(target) if target is not None else "(no target)"
+            if target is not None and getattr(target, "__module__", None) is not None:
+                target_desc += " in module " + target.__module__
             try:
                 test()
-                print "TEST PASSED:  " + str(test)
+                print "TEST PASSED: " + test.__name__ + " testing " + target_desc
                 passed += 1
             except:
-                print "TEST FAILED:  " + str(test)
+                print "TEST FAILED: " + test.__name__ + " testing " + target_desc
                 print "Exception for the above failure:"
                 print_exc()
                 failed += 1

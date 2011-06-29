@@ -23,10 +23,10 @@ Traceback (most recent call last):
 Exception: Parse failure: At position 0: expected one of "("
 >>> parser.parse_string("(a")
 Traceback (most recent call last):
-Exception: Parse failure: At position 2: expected one of ")", "a", "b"
+Exception: Parse failure: At position 2: expected one of "a", "b", ")"
 >>> parser.parse_string("(ababacababa)")
 Traceback (most recent call last):
-Exception: Parse failure: At position 6: expected one of ")", "b", "a"
+Exception: Parse failure: At position 6: expected one of "a", "b", ")"
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -153,6 +153,9 @@ class Expectation(object):
         return self.__str__()
 
 
+expectation_list_type = static.compile([static.Positional(int, Expectation)])
+
+
 class EUnsatisfiable(Expectation):
     """
     An expectation indicating that there is no input that could have been
@@ -257,13 +260,46 @@ class Result(object):
     instances of this class since it's primarily used internally by Parcon, but
     if you're implementing your own Parser subclass, then you'll likely find
     this class useful since you'll be returning instances of it.
+    
+    You typically don't create instances of Result directly; instead, you
+    usually call either match() or failure(), which return result objects
+    indicating success or failure, respectively.
+    
+    Three fields are made available on a Result object:
+    
+        expected: A list of expectations in the same format as provided to the
+        failure() function
+        
+        end: The position at which the parser finished parsing, if this result
+        indicates success. The value is undefined in the case of a failure.
+        
+        value: The value that the parser produced, if this result indicates
+        success. The value is undefined in the case of a failure.
+    
+    You can test whether or not a result indicates success by using it as a
+    boolean. For example:
+    
+    >>> successful_result = match(0, "some random value", [])
+    >>> failed_result = failure([(0, EUnsatisfiable())])
+    >>> if successful_result:
+    ...     print "Yes"
+    ... else:
+    ...     print "No"
+    ...
+    Yes
+    >>> if failed_result:
+    ...     print "Yes"
+    ... else:
+    ...     print "No"
+    ...
+    No
     """
     def __init__(self, end, value, expected):
         self.end = end
         self.value = value
         if not isinstance(expected, list):
             expected = [expected]
-        static.check_matches(expected, [static.Positional(int, Expectation)])
+        expectation_list_type.check_matches(expected)
         self.expected = expected
     
     def __nonzero__(self):
@@ -304,42 +340,96 @@ def match(end, value, expected):
     return Result(end, value, expected)
 
 
-def format_failure(expected):
+def filter_expectations(expected):
     """
-    Formats a list of expectations into a failure message that typically looks
-    something like this:
+    Extracts the expectations from the specified expectation list, which should
+    be of the same format as that passed to failure(), that have the maximum
+    position within the list. A tuple (position, expectations) will then be
+    returned, where position is the maximum position and expectations is the
+    list of expectations at that position.
     
-    At position n: expected one of x, y, or z
+    If the specified list is empty, (0, []) will be returned.
     
-    Expectations are provided in the same format as passed to the failure()
-    function.
+    All instances of EUnsatisfiable will be filtered from the expectation list,
+    unless it consists only of EUnsatisfiable instances. In that case, only a
+    single EUnsatisfiable will be present in the returned expectation list,
+    even if there were more than one at the maximum position.
     """
-    static.compile([static.Positional(int, Expectation)]).check_matches(expected)
+    expectation_list_type.check_matches(expected)
     # First make sure we actually have some expectations to deal with
     if len(expected) == 0:
-        return "(No expectations present, so an error message can't be constructed)"
-    # Now we construct the list of expectations that we'll use for our message.
-    # The way that we compute this list varies depending on whether or not the
-    # list of expectations contains any values other than EUnsatisfiable.
+        return 0, []
+    # Now we check to see if this is a list of entirely EUnsatisfiables
     if static.compile([static.Positional(int, EUnsatisfiable)]).matches(expected):
         # This is a bunch of EUnsatisfiables, so we simply take the one at the
-        # last position and create a singleton list based off of it.
-        max_position, e = max(expected, key=lambda (position, _): position)
-        expectations = [e]
+        # last position and return a singleton list based off of it.
+        position, e = max(expected, key=lambda (position, _): position)
+        expected = [e]
     else:
         # This contains things besides EUnsatisfiables, so we filter out all of
         # the unsatisfiables, then get all the other ones at the resulting
         # maximum position.
         expected = [e for e in expected if not isinstance(e[1], EUnsatisfiable)]
-        max_position = max(expected, key=lambda (position, _): position)[0]
-        expectations = [e for p, e in expected if p == max_position]
-    # We've got the list. Now we'll remove duplicates...
-    expectations = list(set(expectations))
-    # ...sort the list so that the output order is the same each time (which is
-    # useful for making doctests actually work)...
-    expectations.sort()
-    # ...and then format the error message, and we're done!
-    return "At position %s: expected one of %s" % (max_position, ", ".join([e.format() for e in expectations]))
+        position = max(expected, key=lambda (position, _): position)[0]
+        expected = [e for p, e in expected if p == position]
+    # Now we remove duplicates. I used to pass these into set() until I
+    # discovered that because Expectation objects don't compare based on their
+    # actual value, the resulting order was based on the memory position at
+    # which the expectation resided, which tended to mess up doctests that used
+    # the position of expectations in an "At position n: expected x, y, z"
+    # message. So I'm not doing that anymore :-)
+    used_expectations = set()
+    result = []
+    for e in expected:
+        # Create a tuple of the expectation's type and its format
+        e_tuple = type(e), e.format()
+        # Then check to see if that resulting combination has already been used
+        if e_tuple not in used_expectations:
+            # ...and add it if it hasn't been.
+            result.append(e)
+            used_expectations.add(e_tuple)
+    return position, result
+
+
+def stringify_expectations(expectations):
+    """
+    Converts the specified list of Expectation objects into a list of strings.
+    This essentially just returns [e.format() for e in expectations].
+    """
+    return [e.format() for e in expectations]
+
+
+def format_expectations(position, expectations):
+    """
+    Formats a position and a list of strings into a failure message that
+    typically looks like this:
+    
+    At position n: expected one of x, y, z
+    
+    Position is the position to use for n. Expectations is the list of strings
+    to use for x, y, and z.
+    """
+    return "At position %s: expected one of %s" % (position, ", ".join(expectations))
+
+
+def format_failure(expected):
+    """
+    Formats a list of expectations into a failure message that typically looks
+    something like this:
+    
+    At position n: expected one of x, y, z
+    
+    Expectations are provided in the same format as passed to the failure()
+    function.
+    
+    This function used to contain all of the formatting logic, but the logic
+    has since been split into the functions filter_expectations,
+    stringify_expectations, and format_expectations. This function now
+    functions as a convenience wrapper around those three functions.
+    """
+    position, expectations = filter_expectations(expected)
+    expectations = stringify_expectations(expectations)
+    return format_expectations(position, expectations)
 
 
 def parse_space(text, position, end, space):
@@ -1470,7 +1560,7 @@ class Expected(Parser):
     
     >>> something.parse_string("bogus")
     Traceback (most recent call last):
-    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "false", "true"
+    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "true", "false"
     
     which isn't very pretty or informative. If, instead, you did this:
     
