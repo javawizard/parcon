@@ -55,14 +55,19 @@ class TestSuite(object):
             print "WARNING: missing tests for " + str(targets - self.targets)
     
     def run_tests(self):
+        passed = 0
+        failed = 0
         for test in self.tests:
             try:
                 test()
                 print "TEST PASSED:  " + str(test)
+                passed += 1
             except:
                 print "TEST FAILED:  " + str(test)
                 print "Exception for the above failure:"
                 print_exc()
+                failed += 1
+        return passed, failed
 
 
 
