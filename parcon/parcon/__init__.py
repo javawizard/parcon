@@ -1948,10 +1948,12 @@ def list_dict(list_of_pairs):
     
     For example:
     
+    >>> # The last tuple wins:
     >>> dict([(1,"one"),(2,"two"),(1,"first")])
-    {1: 'first', 2: 'two'} # The last tuple wins
+    {1: 'first', 2: 'two'}
+    >>> # All results included in lists:
     >>> list_dict([(1,"one"),(2,"two"),(1,"first")])
-    {1: ['one', 'first'], 2: ['second']} # All results included in lists
+    {1: ['one', 'first'], 2: ['two']}
     """
     result = {}
     for k, v in list_of_pairs:
