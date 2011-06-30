@@ -1,0 +1,20 @@
+Graphs...
+
+I'm thinking I'll create my own graph class. Really simple like. Parsers and formatters, and perhaps static types in the future, can all generate instances of this class.
+
+Then there'll be a module, maybe parcon.graph, that contains functions for graphing things using various graphing systems. The two I'm thinking of having for starters are graphviz and networkx+matplotlib.
+
+Ok so...
+
+When we ask something to graph itself...
+
+well...
+
+We should have a method for parsers, do_graph. This method takes an AGraph. It should add itself to the graph under the name id(self). It should also add any other auxiliary nodes that it needs. It should then add edges going from itself to things that it depends on. It then returns a list of all of the things (things that should also provide do_graph) that it depends on.
+
+Actually, we should just have all parsers that support graphing subclass from Graphable, which has that function as one that has to be overridden. It then also has graph, which does the actual graphing stuff; specifically, it creates an AGraph and a set of object ids that we've already visited, then starts with self and calls do_graph, then, for each returned object that hasn't already been visited yet (as per its id being in the list of visited objects), we add it to the graph.
+
+Then we return the graph.
+
+This Graphable class would be in parcon.graph. This would be independent of any of the modules, most likely including parcon.static in case I decide to give static the ability to graph itself. parcon would then import parcon.graph and have all of its parsers, or at least most of them, subclass from Graphable. 
+

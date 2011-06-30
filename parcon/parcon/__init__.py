@@ -109,6 +109,7 @@ import itertools
 from parcon import static
 import re
 import collections
+from parcon.graph import Graphable as _Graphable
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -485,7 +486,11 @@ def op_or(first, second):
     first = promote(first)
     second = promote(second)
     if isinstance(first, Parser) and isinstance(second, Parser):
-        return First(first, second)
+        return First(*
+                     (list(first.parsers) if isinstance(first, First) else [first])
+                     + 
+                     (list(second.parsers) if isinstance(second, First) else [second])
+                     )
     return NotImplemented
 
 def op_pos(parser):
@@ -600,7 +605,7 @@ class Parser(object):
         return self.__repr__()
 
 
-class Invalid(Parser):
+class Invalid(Parser, _Graphable):
     """
     A parser that never matches any input and always fails.
     """
@@ -613,11 +618,15 @@ class Invalid(Parser):
         # Literal("a"), and you'll see what happens.)
         return failure((position, EUnsatisfiable()))
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Invalid")
+        return []
+    
     def __repr__(self):
         return "Invalid()"
 
 
-class Literal(Parser):
+class Literal(Parser, _Graphable):
     """
     A parser that matches the specified literal piece of text. It succeeds
     only if that piece of text is found, and it returns None when it succeeds.
@@ -634,6 +643,10 @@ class Literal(Parser):
             return match(expected_end, None, [(expected_end, EUnsatisfiable())])
         else:
             return failure((position, EStringLiteral(self.text)))
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Literal:\n%s' % repr(self.text))
+        return []
     
     def __repr__(self):
         return "Literal(%s)" % repr(self.text)
@@ -654,11 +667,15 @@ class SignificantLiteral(Literal):
         else:
             return failure((position, EStringLiteral(self.text)))
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='SignificantLiteral:\n%s' % repr(self.text))
+        return []
+    
     def __repr__(self):
         return "SignificantLiteral(%s)" % repr(self.text)
 
 
-class AnyCase(Parser):
+class AnyCase(Parser, _Graphable):
     """
     A case-insensitive version of Literal. Behaves exactly the same as Literal
     does, but without regard to the case of the input.
@@ -679,11 +696,15 @@ class AnyCase(Parser):
         else:
             return failure((position, EStringLiteral(self.text)))
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='AnyCase:\n%s' % repr(self.text))
+        return []
+    
     def __repr__(self):
         return "AnyCase(%s)" % repr(self.text)
 
 
-class CharIn(Parser):
+class CharIn(Parser, _Graphable):
     """
     A parser that matches a single character as long as it is in the specified
     sequence (which can be a string or a list of one-character strings). It
@@ -700,6 +721,10 @@ class CharIn(Parser):
         else:
             return failure([(position, EAnyCharIn(self.chars))])
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='CharIn:\n%s' % repr(self.chars))
+        return []
+    
     def __repr__(self):
         return "CharIn(" + repr(self.chars) + ")"
 
@@ -710,6 +735,10 @@ class Digit(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, digit_chars)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Digit')
+        return []
 
 
 class Upper(CharIn):
@@ -718,6 +747,10 @@ class Upper(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, upper_chars)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Upper')
+        return []
 
 
 class Lower(CharIn):
@@ -726,6 +759,10 @@ class Lower(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, lower_chars)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Lower')
+        return []
 
 
 class Alpha(CharIn):
@@ -734,6 +771,10 @@ class Alpha(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, upper_chars + lower_chars)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Alpha')
+        return []
 
 
 class Alphanum(CharIn):
@@ -742,6 +783,10 @@ class Alphanum(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, upper_chars + lower_chars + digit_chars)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Alphanum')
+        return []
 
 
 class Whitespace(CharIn):
@@ -753,9 +798,13 @@ class Whitespace(CharIn):
     
     def __repr__(self):
         return "Whitespace()"
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='Whitespace')
+        return []
 
 
-class AnyChar(Parser):
+class AnyChar(Parser, _Graphable):
     """
     A parser that matches any single character. It returns the character that
     it matched.
@@ -767,38 +816,48 @@ class AnyChar(Parser):
         else:
             return failure([(position, EAnyChar())])
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='AnyChar')
+        return []
+    
     def __repr__(self):
         return "AnyChar()"
 
 
-class Except(Parser):
+class Except(Parser, _Graphable):
     """
     A parser that matches and returns whatever the specified parser matches
-    and returns, as long as the specified avoidParser does not also match at
+    and returns, as long as the specified avoid_parser does not also match at
     the same location. For example, Except(AnyChar(), Literal("*/")) would
     match any character as long as that character was not a * followed
     immediately by a / character. This would most likely be useful in, for
     example, a parser designed to parse C-style comments.
     """
-    def __init__(self, parser, avoidParser):
+    def __init__(self, parser, avoid_parser):
         self.parser = parser
-        self.avoidParser = avoidParser
+        self.avoid_parser = avoid_parser
     
     def parse(self, text, position, end, space):
         # May want to parse space to make sure the two parsers are in sync
         result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
-        avoidResult = self.avoidParser.parse(text, position, end, space)
-        if avoidResult:
+        avoid_result = self.avoid_parser.parse(text, position, end, space)
+        if avoid_result:
             return failure([(position, EStringLiteral("(TBD: except)"))])
         return result
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Except")
+        graph.add_edge(id(self), id(self.parser), label="match")
+        graph.add_edge(id(self), id(self.avoid_parser), label="avoid")
+        return [self.parser, self.avoid_parser]
     
     def __repr__(self):
         return "Except(%s, %s)" % (repr(self.parser), repr(self.avoidParser))
 
 
-class ZeroOrMore(Parser):
+class ZeroOrMore(Parser, _Graphable):
     """
     A parser that matches the specified parser as many times as it can. The
     results are collected into a list, which is then returned. Since
@@ -817,11 +876,16 @@ class ZeroOrMore(Parser):
             parserResult = self.parser.parse(text, position, end, space)
         return match(position, result, parserResult.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="ZeroOrMore")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "ZeroOrMore(%s)" % repr(self.parser)
 
 
-class OneOrMore(Parser):
+class OneOrMore(Parser, _Graphable):
     """
     Same as ZeroOrMore, but requires that the specified parser match at least
     once. If it does not, this parser will fail.
@@ -840,11 +904,16 @@ class OneOrMore(Parser):
             return failure(parserResult.expected)
         return match(position, result, parserResult.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="OneOrMore")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "OneOrMore(%s)" % repr(self.parser)
 
 
-class Then(Parser):
+class Then(Parser, _Graphable):
     """
     A parser that matches the first specified parser followed by the second.
     If neither of them matches, or if only one of them matches, this parser
@@ -890,11 +959,21 @@ class Then(Parser):
         else:
             return match(position, (a, b), secondResult.expected)
     
+    
+    def do_graph(self, graph):
+        # Define a function for recursively expanding nested Thens into a list
+        expand = lambda x: [x] if not isinstance(x, Then) else expand(x.first) + expand(x.second)
+        graph.add_node(id(self), label="Then", ordering="out")
+        child_parsers = expand(self)
+        for index, parser in enumerate(child_parsers):
+            graph.add_edge(id(self), id(parser), label=str(index + 1))
+        return child_parsers
+    
     def __repr__(self):
         return "Then(%s, %s)" % (repr(self.first), repr(self.second))
 
 
-class Discard(Parser):
+class Discard(Parser, _Graphable):
     """
     A parser that matches if the parser it's constructed with matches. It
     consumes the same amount of input that the specified parser does, but this
@@ -912,11 +991,16 @@ class Discard(Parser):
         else:
             return failure(result.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Discard")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "Discard(" + repr(self.parser) + ")"
 
 
-class First(Parser):
+class First(Parser, _Graphable):
     """
     A parser that tries all of its specified parsers in order. As soon as one
     matches, its result is returned. If none of them match, this parser fails.
@@ -934,11 +1018,17 @@ class First(Parser):
                 expectedForErrors += result.expected
         return failure(expectedForErrors)
     
+    def do_graph(self, graph):
+        for index, parser in enumerate(self.parsers):
+            graph.add_edge(id(self), id(parser), label=str(index + 1))
+        graph.add_node(id(self), label="First", ordering="out")
+        return self.parsers
+    
     def __repr__(self):
         return "First(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
-class Longest(Parser):
+class Longest(Parser, _Graphable):
     """
     A parser that tries all of its specified parsers. The longest one that
     succeeds is chosen, and its result is returned. If none of the parsers
@@ -960,11 +1050,17 @@ class Longest(Parser):
             return failure(expectedForErrors)
         return max(successful, key=lambda result: result.end)
     
+    def do_graph(self, graph):
+        for index, parser in enumerate(self.parsers):
+            graph.add_edge(id(self), id(parser), label=str(index + 1))
+        graph.add_node(id(self), label="Longest", ordering="out")
+        return self.parsers
+    
     def __repr__(self):
         return "Longest(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
-class Translate(Parser):
+class Translate(Parser, _Graphable):
     """
     A parser that passes the result of the parser it's created with, if said
     parser matches successfully, through a function, and the function's return
@@ -992,11 +1088,22 @@ class Translate(Parser):
             return failure(result.expected)
         return match(result.end, self.function(result.value), result.expected)
     
+    def do_graph(self, graph):
+        # TODO: consider using some sort of node for functions in some way, so
+        # that each function, by identity, has a node corresponding to it that
+        # Translate points to. It would probably have a different shape than
+        # normal nodes.
+        graph.add_node(id(self), label="Translate")
+        graph.add_node(id(self.function), label=repr(self.function), shape="rect")
+        graph.add_edge(id(self), id(self.parser), label="parser")
+        graph.add_edge(id(self), id(self.function), label="function")
+        return [self.parser]
+    
     def __repr__(self):
         return "Translate(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
-class Exact(Parser):
+class Exact(Parser, _Graphable):
     """
     A parser that returns whatever the specified parser returns, but Invalid()
     will be passed as the whitespace parser to the specified parser when its
@@ -1027,11 +1134,17 @@ class Exact(Parser):
         position = parse_space(text, position, end, space)
         return self.parser.parse(text, position, end, self.space_parser)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Exact")
+        graph.add_edge(id(self), id(self.parser), label="parser")
+        if not isinstance(self.space_parser, Invalid):
+            graph.add_edge(id(self), id(self.space_parser), label="space")
+    
     def __repr__(self):
         return "Exact(" + repr(self.parser) + ")"
 
 
-class Optional(Parser):
+class Optional(Parser, _Graphable):
     """
     A parser that returns whatever its underlying parser returns, except that
     if the specified parser fails, this parser succeeds and returns the default
@@ -1048,10 +1161,15 @@ class Optional(Parser):
         else:
             return match(position, self.default, result.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Optional, defaulting to:\n%s" % repr(self.default))
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "Optional(%s, %s)" % (repr(self.parser), repr(self.default))
 
-class Repeat(Parser):
+class Repeat(Parser, _Graphable):
     """
     A parser that matches its underlying parser a certain number of times. If
     the underlying parser did not match at least min times, this parser fails.
@@ -1081,11 +1199,24 @@ class Repeat(Parser):
             return failure(parse_result.expected)
         return match(position, result, parse_result.expected)
     
+    def do_graph(self, graph):
+        if self.min is None and self.max is None:
+            label = "zero or more times"
+        elif self.min is None:
+            label = "not more than %s" % self.max
+        elif self.max is None:
+            label = "at least %s" % self.min
+        else:
+            label = "at least %s\nbut not more than %s" % (self.min, self.max)
+        graph.add_node(id(self), label="Repeat\n" + label)
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "Repeat(%s, %s, %s)" % (repr(self.parser), repr(self.min), repr(self.max))
 
 
-class Keyword(Parser):
+class Keyword(Parser, _Graphable):
     """
     A parser that matches the specified parser as long as it is followed
     immediately by the specified terminator parser, or by whitespace
@@ -1109,11 +1240,18 @@ class Keyword(Parser):
             return failure(terminatorResult.expected)
         return result
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Keyword")
+        graph.add_node(id(self), id(self.parser), label="parser")
+        if self.terminator is not None:
+            graph.add_node(id(self), id(self.terminator), label="terminator")
+        return [self.parser] + [self.terminator] if self.terminator is not None else []
+    
     def __repr__(self):
         return "Keyword(%s, %s)" % (repr(self.parser), repr(self.terminator))
 
 
-class Forward(Parser):
+class Forward(Parser, _Graphable):
     """
     A parser that allows forward-definition. In other words, you can create a
     Forward and use it in a parser grammar, and then set the parser that it
@@ -1170,11 +1308,16 @@ class Forward(Parser):
     
     __lshift__ = set
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Forward")
+        graph.add_edge(id(self), id(self.parser), constraint="false")
+        return [self.parser]
+    
     def __repr__(self):
         return "Forward()"
 
 
-class InfixExpr(Parser):
+class InfixExpr(Parser, _Graphable):
     """
     A parser that's created with a component parser and a series of operator
     parsers, which can be literal strings (and will be translated to Literal
@@ -1254,11 +1397,18 @@ class InfixExpr(Parser):
             # and then we start the whole thing over again, trying to parse
             # another operator.
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="InfixExpr")
+        graph.add_edge(id(self), id(self.component), label="component")
+        for parser, function in self.operators:
+            graph.add_edge(id(self), id(parser), label="op")
+        return [self.component] + [p for p, f in self.operators]
+    
     def __repr__(self):
         return "InfixExpr(%s, %s)" % (repr(self.component), repr(self.operators))
 
 
-class Bind(Parser):
+class Bind(Parser, _Graphable):
     """
     A parser that functions similar to Then, but that allows the second parser
     to be determined from the value that the first parser produced. It's
@@ -1287,9 +1437,17 @@ class Bind(Parser):
         if not second_result:
             return failure(second_result.expected + first_result.expected)
         return match(second_result.end, second_result.value, second_result.expected)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Bind using function:\n%s" % repr(self.function))
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
+    def __repr__(self):
+        return "Bind(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
-class Return(Parser):
+class Return(Parser, _Graphable):
     """
     A parser that always succeeds, consumes no input, and always returns a
     value specified when the Return instance is constructed.
@@ -1302,9 +1460,16 @@ class Return(Parser):
     
     def parse(self, text, position, end, whitespace):
         return match(position, self.value, [(position, EUnsatisfiable())])
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Return:\n%s" % repr(self.value))
+        return []
+    
+    def __repr__(self):
+        return "Return(%s)" % repr(self.value)
 
 
-class Chars(Parser):
+class Chars(Parser, _Graphable):
     """
     A parser that parses a specific number of characters and returns them as
     a string. Chars(5), for example, would parse exactly five characters in a
@@ -1337,6 +1502,10 @@ class Chars(Parser):
         result = text[position:position + self.number]
         end_position = position + self.number
         return match(end_position, result, [(end_position, EUnsatisfiable())])
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Chars: %s chars" % self.number)
+        return []
 
 
 class Word(Parser):
@@ -1599,7 +1768,7 @@ class Expected(Parser):
         return result
     
     def __repr__(self):
-        return "Expected(%s, %s, %s" % (repr(self.parser), 
+        return "Expected(%s, %s, %s" % (repr(self.parser),
                 repr(self.expected_message), repr(self.remove_whitespace))
 
 
@@ -1620,17 +1789,17 @@ class Limit(Parser):
         self.length = length
         self.parser = parser
     
-    def parse(self, text, position, end, whitespace):
+    def parse(self, text, position, end, space):
         limit = position + self.length
         if limit > end:
             limit = end
-        return self.parser.parse(text, position, limit, whitespace)
+        return self.parser.parse(text, position, limit, space)
     
     def __repr__(self):
         return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
 
 
-class Tag(Parser):
+class Tag(Parser, _Graphable):
     """
     A parser that "tags", so to speak, the value returned from its underlying
     parser. Specifically, you construct a Tag instance by specifying a tag and
@@ -1650,30 +1819,75 @@ class Tag(Parser):
     parses numbers such as "123.45" into a dict of the form {"integer": "123",
     "decimal": "45"} could be written as:
     
-    >>> decimal_parser = Tag("integer", (+Digit())[concat]) + Tag("decimal", \
-                             Optional("." + (+Digit())[concat], ""))
+    >>> decimal_parser = (Tag("integer", (+Digit())[concat]) + Tag("decimal", \
+                             Optional("." + (+Digit())[concat], "")))[dict]
     
     Of course, using the short notation parser["tag"] in place of Tag("tag",
     parser), we can reduce that further to:
     
-    >>> decimal_parser = (+Digit())[concat]["integer"] + Optional("." + \
-                             (+Digit())[concat], "")["decimal"]
+    >>> decimal_parser = ((+Digit())[concat]["integer"] + Optional("." + \
+                             (+Digit())[concat], "")["decimal"])[dict]
     
     Note that the short notation of parser[tag] only works if tag is a string
     (or a unicode instance; anything that subclasses from basestring works).
     No other datatypes will work; if you want to use those, you'll need to use
     Tag itself instead of the short notation.
+    
+    If you want to preserve all values with a particular tag instead of just
+    one of them, you may want to use parser[list_dict] instead of parser[dict].
+    See the documentation for list_dict for more on what it does.
     """
     def __init__(self, tag, parser):
         self.tag = tag
         self.parser = parser
     
-    def parse(self, text, position, end, whitespace):
-        result = self.parser.parse(text, position, end, whitespace)
+    def parse(self, text, position, end, space):
+        result = self.parser.parse(text, position, end, space)
         if result:
             return match(result.end, Pair(self.tag, result.value), result.expected)
         else:
             return failure(result.expected)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Tag:\n%s" % repr(self.tag))
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
+    def __repr__(self):
+        return "Tag(%s, %s)" % (repr(self.tag), repr(self.parser))
+
+
+class End(Parser, _Graphable):
+    """
+    A parser that matches only at the end of input. It parses whitespace before
+    checking to see if it's at the end, so it will still match even if there is
+    some whitespace at the end of the input. (If you don't want it to consume
+    any whitespace, you can use Exact(End()).)
+    
+    This parser's result is always None, and it doesn't consume any input (even
+    if there was whitespace that it parsed over while searching for the end of
+    input).
+    
+    Note that this parser succeeds at the end of the /logical/ input given to
+    it; specifically, if you've restricted the region to parse with Length, End
+    matches at the end of the limit set by Limit, not at the end of the actual
+    input. A more technical way to put it would be to say that if, after
+    removing whitespace, the resulting position is equal to the end parameter
+    passed to the parse function, then this parser matches. Otherwise, it fails.
+    """
+    def parse(self, text, position, end, space):
+        new_position = parse_space(text, position, end, space)
+        if new_position == end:
+            return match(position, None, [(position, EUnsatisfiable())])
+        else:
+            return failure([(position, EUnsatisfiable())])
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="End")
+        return []
+    
+    def __repr__(self):
+        return "End()"
 
 
 def flatten(value):
@@ -1717,6 +1931,36 @@ def concat(value, delimiter=""):
     all of them that are strings.
     """
     return delimiter.join([s for s in flatten(value) if isinstance(s, basestring)])
+
+
+def list_dict(list_of_pairs):
+    """
+    Similar to dict(list_of_pairs), but the values in the returned dict are
+    lists containing one item for each pair with the specified key. In other
+    words, this can be used to convert a list of 2-tuples into a dict where the
+    same key might be present twice (or more) in the specified list; the value
+    list in the resulting dict will have two (or more) items in it.
+    
+    This is intended to be used as parser[list_dict] in place of parser[dict]
+    when all of the items with a particular tag need to be preserved; this is
+    Parcon's equivalent to Pyparsing's setResultsName(..., listAllMatches=True)
+    behavior.
+    
+    For example:
+    
+    >>> dict([(1,"one"),(2,"two"),(1,"first")])
+    {1: 'first', 2: 'two'} # The last tuple wins
+    >>> list_dict([(1,"one"),(2,"two"),(1,"first")])
+    {1: ['one', 'first'], 2: ['second']} # All results included in lists
+    """
+    result = {}
+    for k, v in list_of_pairs:
+        container = result.get(k, None)
+        if container is None:
+            container = []
+            result[k] = container
+        container.append(v)
+    return result
 
 
 alpha_word = Word(alpha_chars)
