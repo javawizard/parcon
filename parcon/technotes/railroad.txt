@@ -1,0 +1,91 @@
+Parcon currently has support for visualizing parsers by creating a Graphviz diagram. This is great for people writing Parcon grammars, but it's not very helpful to people trying to write text in whatever language a particular Parcon grammar parses. So I'm thinking of adding support to Parcon for drawing railroad diagrams.
+
+So... I'm thinking I'd probably just use the SQLite script for now, and require Tcl/Tk to be installed in order for railroad generation to work. At some later point I'd probably port that script to Python to allow it to be used without Tcl/Tk needing to be installed.
+
+So, what should each parser translate into, in the railroad diagram?
+
+Here's some of the ones I've thought so far:
+
+Optional: a split into two lines, one of which just goes straight from one side to the other, and the other line contains whatever the Optional wraps.
+
+OneOrMore: a loop back from the end of whatever it wraps back to the beginning.
+
+ZeroOrMore: displayed the same as Optional(OneOrMore(...)).
+
+First: displayed as a branch for each of the possible parsers.
+
+Longest: probably displayed the same as First for now; need to think of how to differentiate these two.
+
+Then: displayed as one parser on a line followed by the next parser on the same line.
+
+InfixExpr: the component surrounded by a loop back containing one branch for each operator. I may change this to have InfixExprs nested in each others' components flatten out if I can make sure that this will still always be correct.
+
+Those are the main ones that I can think of right now. Most of the others, such as Translate, would simply pass through their contained parser unmodified; some, however, like Present, And, and Not, will throw exceptions until I figure out how those should be represented in a railroad diagram.
+
+Of course, there will be parser classes that function simply as wrappers around other parser classes that help with creating railroad diagrams. I'm thinking that there will be two for now: RRName and RRDesc.
+
+RRName is a wrapper around a parser that specifies a production name for that parser; instead of displaying that parser in a railroad diagram generated from a parser containing that one, a box with the specified name will be used instead. This is useful for splitting out the grammar into logical productions.
+
+RRDesc is similar to RRName, but it will be displayed differently so that it will appear as a terminal with a specified description. This is good when there's simply no good way to represent the parser as a railroad diagram (and it most likely contains parsers that throw exceptions if such a thing were to be tried), and so a description would be better.
+
+Railroad generation won't descend into the underlying parser of a RRName or an RRDesc, instead showing its name or its description, respectively, in place. This means that parsers that would otherwise throw an exception on railroad generation can be wrapped with RRName or RRDesc and then used in other, more complicated grammars, and railroad diagrams can be generated for everything except those wrapped parsers that contain exception-throwing railroad generating parsers.
+
+I'm tempted to have __call__, when passed a keyword argument named "name" or "desc" (or "description" for the latter), to create and return a wrapping RRName or RRDesc, respectively, for that parser and name/description. I'll need to think about that a bit more.
+
+
+
+So, the more I think about this, the more I'm thinking that writing a railroad renderer from scratch would be awesome. But difficult. So I'm thinking there should be some intermediate form that all parsers know about, that's a sort of language for describing railroad diagrams, or rather, a set of Python classes for describing railroad diagrams.
+
+Parsers would know how to generate things using these classes, and that's it.
+
+Then there could be some converters to go from this representation to an actual graphical version in some form. I'm thinking that the first one will probably use SQLite's Tcl/Tk generation script, with a few minor changes. A second version will probably be one that I write myself in Python, probably based on the Tck/Tk script.
+
+So, what classes are needed? Let's see...
+       
+Token: A class that represents a single element in a railroad diagram. It has two fields (and two constructor parameters): type and text. Type is one of four constants: PRODUCTION, TEXT, ANYCASE, or DESCRIPTION. I haven't yet worked out the specifics of how each of these will be displayed.
+
+Or: A class that represents a list of two or more components in a railroad diagram. They will be displayed as a branch containing each item in the order it was present from top to bottom.
+
+Nothing: A class that represents nothing, I.E. a straight line in the railroad diagram. Its purpose is to allow optional components of the grammar to be created: Or(Nothing(), some_other_component) would be a good representation of parcon.Optional(parser_corresponding_to_some_other_component).
+
+Then: A class representing several components in a line, each followed by the next. This is typically drawn as each component on a line.
+
+Loop: A loop back on a particular component. A loop has two components: the component (to borrow InfixExpr's terminology) and the delimiter. Either one can be Nothing. A railroad generator should make sure that it reverses the order of components present in Then instances in the delimiter of a loop since it will be followed from right to left. (I'm planning on writing a generator that uses SQLite's engine; it already does this, so the generator for it won't need to actually take this into account.)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
