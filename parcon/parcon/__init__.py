@@ -1,13 +1,18 @@
 """
 parcon.py
 
-Parcon is a parser combinator library written by Alexander Boyd. (His email
+Parcon is a parser library written by Alexander Boyd. (His email
 address is alex at open groove dot org, with no space in between "open" and
 "groove".)
 
 Technically, it's a monadic parser combinator library, but you don't need to
 know that unless you're doing really fancy things. (The bind and return
-operations are provided by the Bind and Return parsers, respectively.)
+operations are provided by the Bind and Return parsers, respectively.) It's
+also technically a parser combinator library, but again, you usually won't need
+to know that.
+
+Parcon grammars are written as Python statements that make use of various
+classes provided with Parcon.
 
 To get started, look at all of the subclasses of the Parser class, and
 specifically, look at Parser's parse_string method. And perhaps try

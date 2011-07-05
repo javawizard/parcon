@@ -1,8 +1,8 @@
 ### Introduction
 
-**Parcon** is a parser combinator library written by Alexander Boyd. It's designed to be fast, easy to use, easy to learn, and to provide informative error messages.
+**Parcon** is a parser library written by Alexander Boyd. It's designed to be fast, easy to use, easy to learn, and to provide informative error messages.
 
-**Pargen**, which is provided as a submodule of Parcon, is a formatter combinator
+**Pargen**, which is provided as a submodule of Parcon, is a formatter
 library. It's much the opposite of Parcon: while Parcon is used to parse text
 into various objects, Pargen is used to format objects into text. As an
 example, if you wanted to reimplement Python's json module, you would use
