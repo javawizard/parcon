@@ -52,6 +52,8 @@ Then: A class representing several components in a line, each followed by the ne
 
 Loop: A loop back on a particular component. A loop has two components: the component (to borrow InfixExpr's terminology) and the delimiter. Either one can be Nothing. A railroad generator should make sure that it reverses the order of components present in Then instances in the delimiter of a loop since it will be followed from right to left. (I'm planning on writing a generator that uses SQLite's engine; it already does this, so the generator for it won't need to actually take this into account.)
 
+I think that's just about it.
+
 
 
 
