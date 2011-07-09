@@ -54,6 +54,152 @@ Loop: A loop back on a particular component. A loop has two components: the comp
 
 I think that's just about it.
 
+-------------------------------------------------------------------------------
+
+So now we get on to how we're actually going to draw these. I'm going to use
+Cairo to do the actual drawing, but what, exactly, do we do to draw a railroad
+diagram?
+
+Well...
+
+We need functions for computing the size of any given construct, in pixels. So
+we have one function for each construct to give the width and height of the
+construct, in pixels.
+
+It should also specify where, along the y axis, the line should enter and exit
+that particular construct. So our size-generating method returns a 3-tuple:
+(width, height, line_position).
+
+Sizes, by the way, are going to start with 0 in the upper-left corner. Positive
+X is to the right, and positive Y is down. This mirrors how normal windowing
+coordinates work.
+
+Then we have functions for each construct to draw it forwards, and functions
+for each construct to draw it backwards. The reason for the backwards drawing
+is that the south end of a loop, the end that goes back toward the beginning,
+should be drawn backwards. Of course, if a loop is being drawn backwards
+because it's in the tail end of another loop, then its own tail end should be
+drawn forwards, thereby reversing the direction again.
+
+We give these constructs the X and Y position at which to draw themselves, when
+we instruct them to, and they do it. (And obviously we give them a Cairo
+context on which to draw themselves.)
+
+Then when we want to draw a particular construct into an image, we ask it to
+compute its size, then create a cairo.ImageSurface of that size and tell it to
+draw itself onto that image at position 0, 0. (I'm not sure what coordinates
+Cairo uses by default, so a transform may need to be added to convert these
+coordinates that I've laid out into Cairo coordinates. If I remember correctly,
+Cairo has a facility for doing that, so the functions for drawing constructs
+won't need to know about this or transform their coordinates in any way.)
+
+So this make sense so far. Now let's see about each of the constructs and how
+they'll compute their sizes and stuff...
+
+(Oh, and there's a dict of options passed recursively to each of these methods
+that can be used to specify drawing options.)
+
+So let's see...
+
+Token.
+
+When asked to compute its size, it computes the size of the text it contains
+with a certain font. This font would be specified in the options, and a default
+would be used if one was not specified. It then adds the thickness of the line
+that's supposed to surround it (probably an option) twice to the expected
+height to account for the line at the top and the line at the bottom, and then
+some padding to pad the text. If it's supposed to be drawn as a square (which
+is if it's of type PRODUCTION or DESCRIPTION), then it adds that same amount to
+the sides for the lines surrounding it. Otherwise, it adds that same amount
+plus the height of the text to the width (since the semicircles will end up
+being the same size as the text, so that accounts for them). The line height is
+half the overall height to center the line in the text.
+
+When asked to draw itself, it draws the text right in the middle of how big its
+computed size is. It then draws a box just within its computed size if it's a
+box one, or two semicircles just within its size to the left and the right, and
+lines connecting them, if it's a circle one.
+
+I'm also thinking that the space between the text and the outer line of the
+circle/square, and the spacing between that line and the width/height of the
+Token, and perhaps the thickness of the line, should be options.
+
+Nothing.
+
+This one's easy. Its height and width are that of an arrow symbol. To draw
+itself, it simply draws an arrow pointing right for forwards drawing or left
+for backwards drawing.
+
+Then.
+
+A little bit more tricky, but not impossible by any means. The width is the
+width of all of its constructs added together, plus the width of one arrow-line
+for each construct except the last one. Height is a bit tricker. What we do is
+iterate over the sizes of all of the constructs and create an above height,
+which is the amount of that construct above its line (and this will therefore
+be equal to the line_position for that construct) and a below height, which is
+the amount of that construct below its line (and this will therefore be equal
+to the overall height of the construct minus its line height). The height of
+the Then is then the maximum above height out of these constructs plus the
+maximum below height out of these constructs. The returned line height is equal
+to the maximum above height.
+
+To draw a Then, we create a variable holding the current X position, which we
+initialize to 0. We then compute the size of this Then as above, and store the
+line height. Then we start with the first construct and draw it at our current
+X position, which is 0. Its Y position is the overall line height minus this
+construct's line height. Once we've drawn it, we add its width to the current
+position variable. Then, if this is not the last construct, we draw an
+arrow-line at the current position, and add the width of an arrow-line to the
+current X position.
+
+To draw a Then backwards, we do the same thing but in reverse: we initialize
+our current X position to be the computed width of this Then, and subtract each
+construct from it as we go. When we draw each construct, though, we subtract
+its width from the current X position so that the point we get is where we want
+the upper-left corner of the construct to be. We also draw the arrow-liunes
+pointing left instead of right.
+
+Or.
+
+A little bit more tricky than Then, primarily because of all the curves. The
+width is the width of its widest component, plus the diameter to use when
+drawing the ascenders and descenders, plus the width of two arrow heads; one
+before each construct in the Or and one after.
+
+The height is the height of all the components added together with a certain
+amount of spacing (probably configurable via options) added between. For now
+I'll just assume that there's sufficient space to draw the ascenders and
+descenders; if there isn't, it'll be up to the user to shrink the diameter of
+the ascenders and descenders accordingly. The default diameter will be a value
+that will render correctly.
+
+The line position is the same as the line position of the first construct.
+
+So, to draw an Or... We draw all the components, top to bottom, with the
+appropriate spacing in between; this is done much the same as drawing Then
+instances, but top-to-bottom instead of left-to-right. The X at which the
+components are drawn is the diameter of the descenders, plus the width of one
+arrowhead.
+
+Then we draw a line from the left side at the line height of the first item
+from the left side to the first item itself, with an arrowhead at the end. We
+then draw a similar line on the right side, but this one without an arrowhead.
+
+Then we draw a curve at the left starting on the left side at the line height
+and going so that it points directly down. We then draw a line from there down
+to (total_width_of_this_Or_construct - height_of_the_last_construct +
+line_position_of_the_last_construct - (diameter_of_descenders / 2). The effect
+of this is that the line ends one descender radius above where the line is
+supposed to enter the last construct.
+
+We then draw a similar curve at the right side, starting at the far right at
+the line height and curving down. We draw a similar line from there down to the
+same Y position as the line we just drew on the other side.
+
+Then we start with the second construct in the Or, and continue down through
+each construct. For each of them, we work out the line position of the
+
 
 
 

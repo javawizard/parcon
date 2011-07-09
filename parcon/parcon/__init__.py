@@ -14,9 +14,14 @@ to know that.
 Parcon grammars are written as Python statements that make use of various
 classes provided with Parcon.
 
-To get started, look at all of the subclasses of the Parser class, and
-specifically, look at Parser's parse_string method. And perhaps try
-running this:
+Parcon also supports generation of graphs and generation of syntax diagrams
+(also known as railroad diagrams) from parsers. See the parcon.graph and
+parcon.railroad modules, respectively, for information on how to generate these
+graphs and diagrams.
+
+To get started with Parcon, look at all of the subclasses of Parser, _GParser,
+_RParser, and _GRParser, and specifically, their parse_string methods. And
+perhaps take a look at this example:
 
 >>> parser = "(" + ZeroOrMore(SignificantLiteral("a") | SignificantLiteral("b")) + ")"
 >>> parser.parse_string("(abbaabaab)")
@@ -49,6 +54,8 @@ x[some_int] is the same as Repeat(x, some_int, some_int).
 x[some_string] is the same as Tag(some_string, x).
 x[...] (three literal dots) is the same as ZeroOrMore(x).
 x[function] is the same as Translate(x, function).
+x(name="test") is the same as Name("test", x).
+x(desc="test") or x(description="test") is the same as Desc("test", x)
 "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
        some_parser or some_parser op Literal("x"), respectively.
 
@@ -115,6 +122,7 @@ from parcon import static
 import re
 import collections
 from parcon.graph import Graphable as _Graphable
+from parcon import railroad as _rr
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -530,6 +538,15 @@ def op_and(first, second):
         return And(first, second)
     return NotImplemented
 
+def op_call(parser, *args, **kwargs):
+    if kwargs.get("name") is not None:
+        return Name(kwargs["name"], parser)
+    if kwargs.get("desc") is not None:
+        return Description(kwargs["desc"], parser)
+    if kwargs.get("description") is not None:
+        return Description(kwargs["description"], parser)
+    raise NotImplementedError
+
 
 class Parser(object):
     """
@@ -606,11 +623,25 @@ class Parser(object):
     def __rand__(self, other):
         return op_and(other, self)
     
+    def __call__(self, *args, **kwargs):
+        return op_call(self, *args, **kwargs)
+    
     def __str__(self):
         return self.__repr__()
 
 
-class Invalid(Parser, _Graphable):
+class _GParser(Parser, _Graphable):
+    pass
+
+class _RParser(Parser, _rr.Railroadable):
+    pass
+
+
+class _GRParser(Parser, _Graphable, _rr.Railroadable):
+    pass
+
+
+class Invalid(_GParser):
     """
     A parser that never matches any input and always fails.
     """
@@ -631,7 +662,7 @@ class Invalid(Parser, _Graphable):
         return "Invalid()"
 
 
-class Literal(Parser, _Graphable):
+class Literal(_GRParser):
     """
     A parser that matches the specified literal piece of text. It succeeds
     only if that piece of text is found, and it returns None when it succeeds.
@@ -652,6 +683,9 @@ class Literal(Parser, _Graphable):
     def do_graph(self, graph):
         graph.add_node(id(self), label='Literal:\n%s' % repr(self.text))
         return []
+    
+    def create_railroad(self, options):
+        return _rr.Token(_rr.TEXT, self.text)
     
     def __repr__(self):
         return "Literal(%s)" % repr(self.text)
@@ -680,7 +714,7 @@ class SignificantLiteral(Literal):
         return "SignificantLiteral(%s)" % repr(self.text)
 
 
-class AnyCase(Parser, _Graphable):
+class AnyCase(_GRParser):
     """
     A case-insensitive version of Literal. Behaves exactly the same as Literal
     does, but without regard to the case of the input.
@@ -705,11 +739,14 @@ class AnyCase(Parser, _Graphable):
         graph.add_node(id(self), label='AnyCase:\n%s' % repr(self.text))
         return []
     
+    def create_railroad(self, options):
+        return _rr.Token(_rr.ANYCASE, self.text)
+    
     def __repr__(self):
         return "AnyCase(%s)" % repr(self.text)
 
 
-class CharIn(Parser, _Graphable):
+class CharIn(_GParser):
     """
     A parser that matches a single character as long as it is in the specified
     sequence (which can be a string or a list of one-character strings). It
@@ -809,7 +846,7 @@ class Whitespace(CharIn):
         return []
 
 
-class AnyChar(Parser, _Graphable):
+class AnyChar(_GRParser):
     """
     A parser that matches any single character. It returns the character that
     it matched.
@@ -825,11 +862,14 @@ class AnyChar(Parser, _Graphable):
         graph.add_node(id(self), label='AnyChar')
         return []
     
+    def create_railroad(self, options):
+        return _rr.Token(_rr.DESCRIPTION, "any char")
+    
     def __repr__(self):
         return "AnyChar()"
 
 
-class Except(Parser, _Graphable):
+class Except(_GParser):
     """
     A parser that matches and returns whatever the specified parser matches
     and returns, as long as the specified avoid_parser does not also match at
@@ -862,7 +902,7 @@ class Except(Parser, _Graphable):
         return "Except(%s, %s)" % (repr(self.parser), repr(self.avoidParser))
 
 
-class ZeroOrMore(Parser, _Graphable):
+class ZeroOrMore(_GRParser):
     """
     A parser that matches the specified parser as many times as it can. The
     results are collected into a list, which is then returned. Since
@@ -886,11 +926,14 @@ class ZeroOrMore(Parser, _Graphable):
         graph.add_edge(id(self), id(self.parser))
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.Loop(_rr.Nothing(), _rr.create_railroad(self.parser, options))
+    
     def __repr__(self):
         return "ZeroOrMore(%s)" % repr(self.parser)
 
 
-class OneOrMore(Parser, _Graphable):
+class OneOrMore(_GRParser):
     """
     Same as ZeroOrMore, but requires that the specified parser match at least
     once. If it does not, this parser will fail.
@@ -914,11 +957,14 @@ class OneOrMore(Parser, _Graphable):
         graph.add_edge(id(self), id(self.parser))
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.Loop(_rr.create_railroad(self.parser, options), _rr.Nothing())
+    
     def __repr__(self):
         return "OneOrMore(%s)" % repr(self.parser)
 
 
-class Then(Parser, _Graphable):
+class Then(_GRParser):
     """
     A parser that matches the first specified parser followed by the second.
     If neither of them matches, or if only one of them matches, this parser
@@ -974,11 +1020,14 @@ class Then(Parser, _Graphable):
             graph.add_edge(id(self), id(parser), label=str(index + 1))
         return child_parsers
     
+    def create_railroad(self, options):
+        return _rr.Then(_rr.create_railroad(self.first, options), _rr.create_railroad(self.second, options))
+    
     def __repr__(self):
         return "Then(%s, %s)" % (repr(self.first), repr(self.second))
 
 
-class Discard(Parser, _Graphable):
+class Discard(_GRParser):
     """
     A parser that matches if the parser it's constructed with matches. It
     consumes the same amount of input that the specified parser does, but this
@@ -1001,17 +1050,20 @@ class Discard(Parser, _Graphable):
         graph.add_edge(id(self), id(self.parser))
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
+    
     def __repr__(self):
         return "Discard(" + repr(self.parser) + ")"
 
 
-class First(Parser, _Graphable):
+class First(_GRParser):
     """
     A parser that tries all of its specified parsers in order. As soon as one
     matches, its result is returned. If none of them match, this parser fails.
     """
     def __init__(self, *parsers):
-        self.parsers = parsers
+        self.parsers = [promote(p) for p in parsers]
     
     def parse(self, text, position, end, space):
         expectedForErrors = []
@@ -1029,11 +1081,14 @@ class First(Parser, _Graphable):
         graph.add_node(id(self), label="First", ordering="out")
         return self.parsers
     
+    def create_railroad(self, options):
+        return _rr.Or(*[_rr.create_railroad(v, options) for v in self.parsers])
+    
     def __repr__(self):
         return "First(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
-class Longest(Parser, _Graphable):
+class Longest(_GRParser):
     """
     A parser that tries all of its specified parsers. The longest one that
     succeeds is chosen, and its result is returned. If none of the parsers
@@ -1061,11 +1116,14 @@ class Longest(Parser, _Graphable):
         graph.add_node(id(self), label="Longest", ordering="out")
         return self.parsers
     
+    def create_railroad(self, options):
+        return _rr.Or(*[_rr.create_railroad(v, options) for v in self.parsers])
+    
     def __repr__(self):
         return "Longest(%s)" % ", ".join(repr(parser) for parser in self.parsers)
 
 
-class Translate(Parser, _Graphable):
+class Translate(_GRParser):
     """
     A parser that passes the result of the parser it's created with, if said
     parser matches successfully, through a function, and the function's return
@@ -1094,21 +1152,20 @@ class Translate(Parser, _Graphable):
         return match(result.end, self.function(result.value), result.expected)
     
     def do_graph(self, graph):
-        # TODO: consider using some sort of node for functions in some way, so
-        # that each function, by identity, has a node corresponding to it that
-        # Translate points to. It would probably have a different shape than
-        # normal nodes.
         graph.add_node(id(self), label="Translate")
         graph.add_node(id(self.function), label=repr(self.function), shape="rect")
         graph.add_edge(id(self), id(self.parser), label="parser")
         graph.add_edge(id(self), id(self.function), label="function")
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
+    
     def __repr__(self):
         return "Translate(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
-class Exact(Parser, _Graphable):
+class Exact(_GRParser):
     """
     A parser that returns whatever the specified parser returns, but Invalid()
     will be passed as the whitespace parser to the specified parser when its
@@ -1145,11 +1202,14 @@ class Exact(Parser, _Graphable):
         if not isinstance(self.space_parser, Invalid):
             graph.add_edge(id(self), id(self.space_parser), label="space")
     
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
+    
     def __repr__(self):
         return "Exact(" + repr(self.parser) + ")"
 
 
-class Optional(Parser, _Graphable):
+class Optional(_GRParser):
     """
     A parser that returns whatever its underlying parser returns, except that
     if the specified parser fails, this parser succeeds and returns the default
@@ -1171,10 +1231,13 @@ class Optional(Parser, _Graphable):
         graph.add_edge(id(self), id(self.parser))
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.Or(_rr.create_railroad(self.parser, options), _rr.Nothing())
+    
     def __repr__(self):
         return "Optional(%s, %s)" % (repr(self.parser), repr(self.default))
 
-class Repeat(Parser, _Graphable):
+class Repeat(_GParser):
     """
     A parser that matches its underlying parser a certain number of times. If
     the underlying parser did not match at least min times, this parser fails.
@@ -1221,7 +1284,7 @@ class Repeat(Parser, _Graphable):
         return "Repeat(%s, %s, %s)" % (repr(self.parser), repr(self.min), repr(self.max))
 
 
-class Keyword(Parser, _Graphable):
+class Keyword(_GParser):
     """
     A parser that matches the specified parser as long as it is followed
     immediately by the specified terminator parser, or by whitespace
@@ -1256,7 +1319,7 @@ class Keyword(Parser, _Graphable):
         return "Keyword(%s, %s)" % (repr(self.parser), repr(self.terminator))
 
 
-class Forward(Parser, _Graphable):
+class Forward(_GRParser):
     """
     A parser that allows forward-definition. In other words, you can create a
     Forward and use it in a parser grammar, and then set the parser that it
@@ -1318,11 +1381,14 @@ class Forward(Parser, _Graphable):
         graph.add_edge(id(self), id(self.parser), constraint="false")
         return [self.parser]
     
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
+    
     def __repr__(self):
         return "Forward()"
 
 
-class InfixExpr(Parser, _Graphable):
+class InfixExpr(_GRParser):
     """
     A parser that's created with a component parser and a series of operator
     parsers, which can be literal strings (and will be translated to Literal
@@ -1409,11 +1475,15 @@ class InfixExpr(Parser, _Graphable):
             graph.add_edge(id(self), id(parser), label="op")
         return [self.component] + [p for p, f in self.operators]
     
+    def create_railroad(self, options):
+        op_railroads = [_rr.create_railroad(v, options) for (v, function) in self.operators]
+        return _rr.Loop(_rr.create_railroad(self.component, options), _rr.Or(*op_railroads))
+    
     def __repr__(self):
         return "InfixExpr(%s, %s)" % (repr(self.component), repr(self.operators))
 
 
-class Bind(Parser, _Graphable):
+class Bind(_GParser):
     """
     A parser that functions similar to Then, but that allows the second parser
     to be determined from the value that the first parser produced. It's
@@ -1452,7 +1522,7 @@ class Bind(Parser, _Graphable):
         return "Bind(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
-class Return(Parser, _Graphable):
+class Return(_GParser):
     """
     A parser that always succeeds, consumes no input, and always returns a
     value specified when the Return instance is constructed.
@@ -1474,7 +1544,7 @@ class Return(Parser, _Graphable):
         return "Return(%s)" % repr(self.value)
 
 
-class Chars(Parser, _Graphable):
+class Chars(_GParser):
     """
     A parser that parses a specific number of characters and returns them as
     a string. Chars(5), for example, would parse exactly five characters in a
@@ -1567,7 +1637,7 @@ class Word(Parser):
                                          repr(self.min), repr(self.max))
 
 
-class Present(Parser):
+class Present(_GParser):
     """
     A lookahead parser; it matches as long as the parser it's constructed with
     matches at the specified position, but it doesn't actually consume any
@@ -1584,11 +1654,16 @@ class Present(Parser):
         else:
             return failure(result.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Present")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "Present(%s)" % repr(self.parser)
 
 
-class Preserve(Parser):
+class Preserve(_GParser):
     """
     A lookahead parser; it matches as long as the parser it's constructed with
     matches at the specified position, but it doesn't actually consume any
@@ -1605,11 +1680,16 @@ class Preserve(Parser):
         else:
             return failure(result.expected)
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Preserve")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
     def __repr__(self):
         return "Present(%s)" % repr(self.parser)
 
 
-class And(Parser):
+class And(_GParser):
     """
     A parser that matches whatever its specified parser matches as long as its
     specified check_parser also matches at the same location. This could be
@@ -1634,11 +1714,17 @@ class And(Parser):
             return failure(check_result.expected)
         return result
     
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="And")
+        graph.add_edge(id(self), id(self.check_parser), label="check")
+        graph.add_edge(id(self), id(self.parser), label="result")
+        return [self.parser, self.check_parser]
+    
     def __repr__(self):
         return "And(%s, %s)" % (repr(self.parser), repr(self.check_parser))
 
 
-class Not(Parser):
+class Not(_GParser):
     """
     A parser that matches only if the parser it's created with does not. If the
     aforementioned parser fails, then Not succeeds, consuming no input and 
@@ -1653,6 +1739,11 @@ class Not(Parser):
             return failure([(position, EStringLiteral("(TBD: Not)"))])
         else:
             return match(position, None, [(position, EUnsatisfiable())])
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Not")
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
     
     def __repr__(self):
         return "Not(%s)" % repr(self.parser)
@@ -1804,7 +1895,7 @@ class Limit(Parser):
         return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
 
 
-class Tag(Parser, _Graphable):
+class Tag(_GParser):
     """
     A parser that "tags", so to speak, the value returned from its underlying
     parser. Specifically, you construct a Tag instance by specifying a tag and
@@ -1862,7 +1953,7 @@ class Tag(Parser, _Graphable):
         return "Tag(%s, %s)" % (repr(self.tag), repr(self.parser))
 
 
-class End(Parser, _Graphable):
+class End(_GParser):
     """
     A parser that matches only at the end of input. It parses whitespace before
     checking to see if it's at the end, so it will still match even if there is
@@ -1893,6 +1984,49 @@ class End(Parser, _Graphable):
     
     def __repr__(self):
         return "End()"
+
+
+class Name(_GRParser):
+    def __init__(self, name, parser):
+        self.name = name
+        self.parser = parser
+    
+    def parse(self, text, position, end, space):
+        return self.parser.parse(text, position, end, space)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Name:\n" + repr(self.name))
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
+    def create_railroad(self, options):
+        return _rr.Token(_rr.PRODUCTION, self.name)
+    
+    def __repr__(self):
+        return "Name(%s, %s)" % (repr(self.name), repr(self.parser))
+
+
+class Description(_GRParser):
+    def __init__(self, description, parser):
+        self.description = description
+        self.parser = parser
+    
+    def parse(self, text, position, end, space):
+        return self.parser.parse(text, position, end, space)
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label="Description:\n" + repr(self.description))
+        graph.add_edge(id(self), id(self.parser))
+        return [self.parser]
+    
+    def create_railroad(self, options):
+        return _rr.Token(_rr.DESCRIPTION, self.description)
+    
+    def __repr__(self):
+        return "Description(%s, %s)" % (repr(self.description), repr(self.parser))
+
+
+Desc = Description
 
 
 def flatten(value):
