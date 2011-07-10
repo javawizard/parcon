@@ -56,7 +56,9 @@ def create_options(map):
         raildraw_size_of_arrow=size_of_arrow,
         raildraw_draw_arrow=draw_arrow,
         raildraw_token_padding=3,
-        raildraw_token_margin=3
+        raildraw_token_margin=3,
+        raildraw_then_before_arrow=5,
+        raildraw_then_after_arrow=0
     )
 
 def f(map, key):
@@ -68,6 +70,14 @@ def f(map, key):
         map[key] = function
         return function
     return decorator
+
+
+def size_of(image, construct, options):
+    return size_functions[type(construct)](image, construct, options)
+
+
+def draw(image, x, y, construct, options, forward):
+    return draw_functions[type(construct)](image, x, y, construct, options, forward)
 
 
 def get_font_for_token(options, token):
@@ -151,17 +161,46 @@ def draw_Token(image, x, y, construct, options, forward):
     layout.set_font_description(get_font_for_token(options, construct))
     text_width, text_height = layout.get_pixel_size()
     if construct.type in (rr.TEXT, rr.ANYCASE):
-        diameter = text_height + (padding * 2)
+        diameter = padding + text_height + padding
         radius = diameter / 2
         image.move_to(x + margin + radius + padding, y + margin + padding)
         pango_context.show_layout(layout)
         image.move_to(x + margin + radius, y + margin)
         image.line_to(x + margin + radius + padding + text_width + padding, y + margin)
         image.arc(x + margin + radius + padding + text_width + padding, y + margin + radius, radius, radians(270), radians(90))
-        
+        image.line_to(x + margin + radius, y + margin + padding + text_height + padding)
+        image.arc(x + margin + radius, y + margin + radius, radius, radians(90), radians(270))
+        image.close_path() # Shouldn't have any effect since we're already at
+        # the start, but just in case
+        image.stroke()
+        width = margin + radius + padding + text_width + padding + radius + margin
     else:
         image.move_to(x + margin + padding, y + margin + padding)
         pango_context.show_layout(layout)
+        image.move_to(x + margin, y + margin)
+        image.line_to(x + margin + padding + text_width + padding, y + margin)
+        image.line_to(x + margin + padding + text_width + padding, y + margin + padding + text_height + padding)
+        image.line_to(x + margin, y + margin + padding + text_height + padding)
+        image.close_path()
+        image.stroke()
+        width = margin + padding + text_width + padding + margin
+    image.move_to(x, y + margin + padding + (text_height / 2))
+    image.line_to(x + margin, y + margin + padding + (text_height / 2))
+    image.stroke()
+    image.move_to(x + width, y + margin + padding + (text_height / 2))
+    image.line_to(x + width - margin, y + margin + padding + (text_height / 2))
+    image.stroke()
+
+
+@f(size_functions, rr.Then)
+def size_of_Then(image, construct, options):
+    constructs = construct.constructs
+    sizes = [size_of(image, c, options) for c in constructs]
+    before_heights = [l for w, h, l in sizes]
+    after_heights = [h - l for w, h, l in sizes]
+    max_before = max(before_heights)
+    max_after = max(after_heights)
+    
 
 
 del f
