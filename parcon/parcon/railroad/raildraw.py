@@ -62,7 +62,7 @@ def create_options(map):
         raildraw_size_of_arrow=size_of_arrow,
         raildraw_draw_arrow=draw_arrow,
         raildraw_token_padding=3,
-        raildraw_token_margin=3,
+        raildraw_token_margin=0,
         raildraw_then_before_arrow=5,
         raildraw_then_after_arrow=0
     )
@@ -249,7 +249,7 @@ def draw_Then(image, x, y, construct, options, forward):
 del f
 
 
-def draw_to_png(diagram, filename):
+def draw_to_png(diagram, options, filename):
     """
     Draws the specified railroad diagram, which should be an instance of
     parcon.railroad.Component or one of its subclasses, into the PNG file at
@@ -259,5 +259,50 @@ def draw_to_png(diagram, filename):
     parcon.railroad.Component's subclasses to pass to this method, or you can
     convert a Parcon parser to a Component by calling its create_railroad
     method.
+    
+    options is a dictionary of options to use. For now, just use the empty
+    dict; I'll get around to documenting the options that you can use here at
+    some point.
     """
-    raise NotImplementedError
+    width, height, line_position = size_of(diagram)
+    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, width + 3, height + 3)
+    context = cairo.Context(image)
+    draw(context, 1, 1, diagram, options, True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
