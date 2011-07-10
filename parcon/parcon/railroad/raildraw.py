@@ -16,6 +16,12 @@ installed separately from Parcon; both Cairo and PyCairo are available for
 Windows, Linux, and Mac. A Google search should turn up information on where to
 download and install both. (If it doesn't, go to pypi.python.org/pypi/parcon
 and send an email to the email address you find there.)
+
+This module also requires Pango and PyGTK (for the Pango bindings). A similar
+Google search should turn up information on how to install these.
+
+If you're on Ubuntu, all of the above dependencies can be installed via
+apt-get; I'll get a list of the specific packages to install up here soon.
 """
 
 from __future__ import division
@@ -96,7 +102,8 @@ def draw_arrow(image, x, y, options, forward):
     """
     Draws an arrow at the specified position.
     """
-    width, height, line_pos = size_of_arrow(options)
+    width, height = size_of_arrow(options)
+    line_pos = height / 2
     if forward:
         image.move_to(x, y)
         image.line_to(x + width, y + line_pos)
@@ -111,6 +118,14 @@ def draw_arrow(image, x, y, options, forward):
     image.fill()
 
 
+def draw_line(image, x1, y1, x2, y2):
+    if x1 == y1 and x2 == y2: # Empty line
+        return
+    image.move_to(x1, y1)
+    image.line_to(x2, y2)
+    image.stroke()
+
+
 def size_of_arrow(options):
     """
     Returns the size of an arrow, in the same format as all of the other size
@@ -118,12 +133,13 @@ def size_of_arrow(options):
     """
     width = options.raildraw_arrow_width
     height = options.raildraw_arrow_height
-    return (width, height, height / 2)
+    return width, height
 
 
 @f(size_functions, rr.Nothing)
 def size_of_Nothing(image, construct, options):
-    return options.raildraw_size_of_arrow(options)
+    width, height = options.raildraw_size_of_arrow(options)
+    return width, height, height / 2
 
 
 @f(draw_functions, rr.Nothing)
@@ -200,7 +216,34 @@ def size_of_Then(image, construct, options):
     after_heights = [h - l for w, h, l in sizes]
     max_before = max(before_heights)
     max_after = max(after_heights)
-    
+    arrow_line_size = (options.raildraw_then_before_arrow + 
+                       options.raildraw_size_of_arrow(options)[0] + 
+                       options.raildraw_then_after_arrow)
+    return sum([w for w, h, l in sizes]) + (len(sizes) - 1) * arrow_line_size, max_before + max_after, max_before
+
+
+@f(draw_functions, rr.Then)
+def draw_Then(image, x, y, construct, options, forward):
+    constructs = construct.constructs
+    arrow_before = options.raildraw_then_before_arrow
+    arrow_after = options.raildraw_then_after_arrow
+    if not forward:
+        constructs = reversed(constructs)
+        arrow_before, arrow_after = arrow_after, arrow_before
+    arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
+    width, height, line_position = size_of_Then(image, construct, options)
+    current_x = x
+    for index, c in enumerate(constructs):
+        c_width, c_height, c_line_position = size_of(image, c, options)
+        draw(image, current_x, y + (line_position - c_line_position), c, options, forward)
+        current_x += c_width
+        if index != (len(constructs) - 1):
+            draw_line(image, current_x, y + line_position, current_x + arrow_before, y + line_position)
+            current_x += arrow_before
+            options.raildraw_draw_arrow(image, current_x, y + line_position - (arrow_height/2), options, forward)
+            current_x += arrow_width
+            draw_line(image, current_x, y + line_position, current_x + arrow_after, y + line_position)
+            current_x += arrow_after
 
 
 del f

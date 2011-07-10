@@ -35,13 +35,13 @@ class Nothing(Component):
 
 
 class Then(Component):
-    def __init__(self, *components):
-        self.components = list(components)
+    def __init__(self, *constructs):
+        self.constructs = list(constructs)
 
 
 class Or(Component):
-    def __init__(self, *components):
-        self.components = list(components)
+    def __init__(self, *constructs):
+        self.constructs = list(constructs)
 
 
 class Token(Component):
