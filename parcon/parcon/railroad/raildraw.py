@@ -47,8 +47,8 @@ except ImportError:
 size_functions = {}
 draw_functions = {}
 
-plain_font = pango.FontDescription("sans 16")
-bold_font = pango.FontDescription("sans bold 16")
+plain_font = pango.FontDescription("sans 10")
+bold_font = pango.FontDescription("sans bold 10")
 default_line_size = 2
 
 def create_options(map):
@@ -57,14 +57,18 @@ def create_options(map):
         raildraw_text_font=bold_font,
         raildraw_anycase_font=plain_font,
         raildraw_description_font=plain_font,
-        raildraw_arrow_width=12,
-        raildraw_arrow_height=9,
+        raildraw_arrow_width=9,
+        raildraw_arrow_height=7,
+        raildraw_arrow_indent=0.2,
         raildraw_size_of_arrow=size_of_arrow,
         raildraw_draw_arrow=draw_arrow,
-        raildraw_token_padding=3,
+        raildraw_token_padding=1,
         raildraw_token_margin=0,
-        raildraw_then_before_arrow=5,
-        raildraw_then_after_arrow=0
+        raildraw_then_before_arrow=8,
+        raildraw_then_after_arrow=0,
+        raildraw_line_size=1.6,
+        raildraw_or_spacing=5,
+        raildraw_or_curve_radius=5
     )
 
 def f(map, key):
@@ -104,16 +108,23 @@ def draw_arrow(image, x, y, options, forward):
     """
     width, height = size_of_arrow(options)
     line_pos = height / 2
+    indent = options.raildraw_arrow_indent * width
     if forward:
+        image.move_to(x, y + line_pos)
+        image.line_to(x + indent, y + line_pos)
+        image.stroke()
         image.move_to(x, y)
         image.line_to(x + width, y + line_pos)
         image.line_to(x, y + height)
-        image.line_to(x + (width / 5), y + line_pos)
+        image.line_to(x + indent, y + line_pos)
     else:
+        image.move_to(x + width, y + line_pos)
+        image.line_to(x + (width - indent), y + line_pos)
+        image.stroke()
         image.move_to(x + width, y)
         image.line_to(x, y + line_pos)
         image.line_to(x + width, y + height)
-        image.line_to(x + (width - (width / 5)), y + line_pos)
+        image.line_to(x + (width - indent), y + line_pos)
     image.close_path()
     image.fill()
 
@@ -246,6 +257,14 @@ def draw_Then(image, x, y, construct, options, forward):
             current_x += arrow_after
 
 
+def size_of_Or(image, construct, options):
+    pass
+
+
+def draw_Or(image, construct, options):
+    pass
+
+
 del f
 
 
@@ -264,10 +283,16 @@ def draw_to_png(diagram, options, filename):
     dict; I'll get around to documenting the options that you can use here at
     some point.
     """
-    width, height, line_position = size_of(diagram)
-    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, width + 3, height + 3)
+    options = create_options(options)
+    # Create an empty image to give size_of something to reference
+    empty_image = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1)
+    empty_context = cairo.Context(empty_image)
+    width, height, line_position = size_of(empty_context, diagram, options)
+    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width + 3), int(height + 3))
     context = cairo.Context(image)
+    context.set_line_width(options.raildraw_line_size)
     draw(context, 1, 1, diagram, options, True)
+    image.write_to_png(filename)
 
 
 
