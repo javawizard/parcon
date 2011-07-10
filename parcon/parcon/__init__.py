@@ -984,8 +984,8 @@ class Then(_GRParser):
     tuple at all.
     """
     def __init__(self, first, second):
-        self.first = first
-        self.second = second
+        self.first = promote(first)
+        self.second = promote(second)
     
     def parse(self, text, position, end, space):
         firstResult = self.first.parse(text, position, end, space)

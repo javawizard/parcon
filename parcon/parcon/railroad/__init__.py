@@ -57,9 +57,28 @@ class Loop(Component):
         self.delimiter = delimiter
 
 
+class Bullet(Component):
+    pass
+
+
 class Railroadable(object):
     def create_railroad(self, options):
         raise NotImplementedError
+    
+    def draw_railroad_to_png(self, options, filename):
+        """
+        Draws a syntax diagram for this object to the specified .png image file
+        using the specified options. For now, just pass {} (i.e. an empty
+        dictionary) as options; I'll document what this actually does at a
+        later date.
+        """
+        # raildraw /has/ to be imported here, not at the top of the module,
+        # because it depends on us and circular dependency issues will arise
+        # if the import is done at the top of this module
+        from parcon.railroad import raildraw as _raildraw
+        diagram = Then(Bullet(), self.create_railroad(options), Bullet())
+        _raildraw.draw_to_png(diagram, options, filename)
+        del _raildraw
 
 
 def create_railroad(value, options):

@@ -67,8 +67,11 @@ def create_options(map):
         raildraw_then_before_arrow=8,
         raildraw_then_after_arrow=0,
         raildraw_line_size=1.6,
-        raildraw_or_spacing=5,
-        raildraw_or_curve_radius=5
+        raildraw_or_spacing=8,
+        raildraw_or_radius=7,
+        raildraw_or_before=0,
+        raildraw_or_after=4,
+        raildraw_bullet_radius=2.5
     )
 
 def f(map, key):
@@ -239,7 +242,7 @@ def draw_Then(image, x, y, construct, options, forward):
     arrow_before = options.raildraw_then_before_arrow
     arrow_after = options.raildraw_then_after_arrow
     if not forward:
-        constructs = reversed(constructs)
+        constructs = list(reversed(constructs))
         arrow_before, arrow_after = arrow_after, arrow_before
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
     width, height, line_position = size_of_Then(image, construct, options)
@@ -251,24 +254,100 @@ def draw_Then(image, x, y, construct, options, forward):
         if index != (len(constructs) - 1):
             draw_line(image, current_x, y + line_position, current_x + arrow_before, y + line_position)
             current_x += arrow_before
-            options.raildraw_draw_arrow(image, current_x, y + line_position - (arrow_height/2), options, forward)
+            options.raildraw_draw_arrow(image, current_x, y + line_position - (arrow_height / 2), options, forward)
             current_x += arrow_width
             draw_line(image, current_x, y + line_position, current_x + arrow_after, y + line_position)
             current_x += arrow_after
 
 
+@f(size_functions, rr.Or)
 def size_of_Or(image, construct, options):
-    pass
+    constructs = construct.constructs
+    sizes = [size_of(image, c, options) for c in constructs]
+    max_width = max(sizes, key=lambda (w, h, l): w)[0]
+    total_height = sum([h for w, h, l in sizes])
+    arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
+    width = ((options.raildraw_or_radius * 4) + options.raildraw_or_before
+             + max_width + options.raildraw_or_after + (arrow_width * 2))
+    height = total_height + ((len(constructs) - 1) * options.raildraw_or_spacing)
+    # Line position of Or is the line position of its first construct
+    return width, height, sizes[0][2]
 
 
-def draw_Or(image, construct, options):
-    pass
+@f(draw_functions, rr.Or)
+def draw_Or(image, x, y, construct, options, forward):
+    width, height, line_position = size_of_Or(image, construct, options)
+    constructs = construct.constructs
+    sizes = [size_of(image, c, options) for c in constructs]
+    max_width = max(sizes, key=lambda (w, h, l): w)[0]
+    radius = options.raildraw_or_radius
+    spacing = options.raildraw_or_spacing
+    arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
+    before = options.raildraw_or_before
+    after = options.raildraw_or_after
+    if not forward:
+        before, after = after, before
+    current_y = y
+    for index, (c, (w, h, l)) in enumerate(zip(constructs, sizes)):
+        if index != 0:
+            image.move_to(x + radius, current_y + l - radius)
+            image.arc_negative(x + radius * 2, current_y + l - radius, radius, radians(180), radians(90))
+            image.stroke()
+        if isinstance(c, rr.Nothing):
+            draw_line(image, x + radius * 2, current_y + l, x + radius * 2 + arrow_width, current_y + l)
+        else:
+            options.raildraw_draw_arrow(image, x + radius * 2, current_y + l - (arrow_height / 2), options, forward)
+        draw_line(image, x + radius * 2 + arrow_width, current_y + l, x + radius * 2 + arrow_width + before, current_y + l)
+        construct_x = x + radius * 2 + arrow_width + before
+        if isinstance(c, rr.Nothing):
+            draw_line(image, construct_x, current_y + l, construct_x + max_width / 2 - w / 2, current_y + l)
+            draw(image, construct_x + max_width / 2 - w / 2, current_y, c, options, forward)
+            draw_line(image, construct_x + max_width / 2 + w / 2, current_y + l, construct_x + max_width + after, current_y + l)
+        else:
+            draw(image, construct_x, current_y, c, options, forward)
+            draw_line(image, construct_x + w, current_y + l, construct_x + max_width + after, current_y + l)
+        if isinstance(c, rr.Nothing):
+            draw_line(image, construct_x + max_width + after, current_y + l, construct_x + max_width + after + arrow_width, current_y + l)
+        else:
+            options.raildraw_draw_arrow(image, construct_x + max_width + after, current_y + l - (arrow_height / 2), options, forward)
+        if index != 0:
+            image.move_to(construct_x + max_width + after + arrow_width, current_y + l)
+            image.arc_negative(construct_x + max_width + after + arrow_width, current_y + l - radius, radius, radians(90), radians(0))
+            image.stroke()
+        if index == len(constructs) - 1: # Last construct
+            line_end_y = current_y + l - radius
+        current_y += spacing + h
+    image.move_to(x, y + line_position)
+    image.arc(x, y + line_position + radius, radius, radians(270), radians(0))
+    image.line_to(x + radius, line_end_y)
+    image.stroke()
+    draw_line(image, x, y + line_position, x + radius * 2, y + line_position)
+    end_x = x + radius * 2 + arrow_width + before + max_width + after + arrow_width 
+    draw_line(image, end_x, y + line_position, end_x + radius * 2, y + line_position)
+    image.move_to(x + width, y + line_position)
+    image.arc_negative(x + width, y + line_position + radius, radius, radians(270), radians(180))
+    image.line_to(x + width - radius, line_end_y)
+    image.stroke()
+
+
+@f(size_functions, rr.Bullet)
+def size_of_Bullet(image, construct, options):
+    diameter = options.raildraw_bullet_radius * 2
+    return diameter, diameter, diameter / 2
+
+
+@f(draw_functions, rr.Bullet)
+def draw_Bullet(image, x, y, construct, options, forward):
+    radius = options.raildraw_bullet_radius
+    image.move_to(x + radius * 2, y + radius)
+    image.arc(x + radius, y + radius, radius, radians(0), radians(360))
+    image.stroke()
 
 
 del f
 
 
-def draw_to_png(diagram, options, filename):
+def draw_to_png(diagram, options, filename, forward=True):
     """
     Draws the specified railroad diagram, which should be an instance of
     parcon.railroad.Component or one of its subclasses, into the PNG file at
@@ -288,10 +367,10 @@ def draw_to_png(diagram, options, filename):
     empty_image = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1)
     empty_context = cairo.Context(empty_image)
     width, height, line_position = size_of(empty_context, diagram, options)
-    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width + 3), int(height + 3))
+    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width + 16), int(height + 16))
     context = cairo.Context(image)
     context.set_line_width(options.raildraw_line_size)
-    draw(context, 1, 1, diagram, options, True)
+    draw(context, 8, 8, diagram, options, forward)
     image.write_to_png(filename)
 
 
