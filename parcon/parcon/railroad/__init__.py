@@ -22,6 +22,7 @@ draw_to_png(create_railroad(some_parser, {}), "test.png")
 """
 
 from itertools import chain
+from parcon import ordered_dict
 
 PRODUCTION = 1
 TEXT = 2
@@ -114,8 +115,36 @@ class Bullet(Component):
 
 
 class Railroadable(object):
+    railroad_children = []
+    railroad_production_name = None
+    railroad_production_delegate = None
+    
     def create_railroad(self, options):
         raise NotImplementedError
+    
+    def get_productions(self):
+        map = ordered_dict.OrderedDict()
+        visited = set()
+        self._list_productions(map, visited)
+        # TODO: in the future, check that each possible result for a given
+        # production generates a railroad that means syntactically the same
+        # thing. For now, we're just going to use the first one in the list.
+        return ordered_dict.OrderedDict([(k, v[0]) for k, v in map.items()])
+    
+    def _list_productions(self, map, visited):
+        if self in visited: # Already visited this object
+            return
+        visited.add(self)
+        if self.railroad_production_name is not None:
+            the_list = map.get(self.name, None)
+            if not the_list:
+                the_list = []
+                map[self.name] = the_list
+            if self.railroad_production_delegate not in the_list:
+                the_list.append(self.railroad_production_delegate)
+        for r in self.railroad_children:
+            ensure_railroadable(r)
+            r._list_productions(map, visited)
     
     def draw_railroad_to_png(self, options, filename):
         """
@@ -131,13 +160,27 @@ class Railroadable(object):
         diagram = Then(Bullet(), self.create_railroad(options), Bullet())
         _raildraw.draw_to_png(diagram, options, filename)
         del _raildraw
+    
+    def draw_productions_to_png(self, options, filename):
+        productions = self.get_productions()
+        if len(productions) == 0:
+            raise Exception("No named productions to generate")
+        from parcon.railroad import raildraw as _raildraw
+        _raildraw.draw_to_png(ordered_dict.OrderedDict([(k,
+            Then(Bullet(), v.create_railroad(options), Bullet()))
+            for k, v in productions.items()]), options, filename)
+        del _raildraw
 
 
-def create_railroad(value, options):
+def ensure_railroadable(value):
     if not isinstance(value, Railroadable):
         raise Exception("Trying to create a railroad diagram for an object of "
                         "class " + str(type(value)) + " but that type is not a "
                         "subclass of Railroadable, so this is not allowed.")
+
+
+def create_railroad(value, options):
+    ensure_railroadable(value)
     return value.create_railroad(options)
 
 

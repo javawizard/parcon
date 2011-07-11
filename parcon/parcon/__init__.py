@@ -914,6 +914,7 @@ class ZeroOrMore(_GRParser):
     """
     def __init__(self, parser):
         self.parser = parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         result = []
@@ -943,6 +944,7 @@ class OneOrMore(_GRParser):
     """
     def __init__(self, parser):
         self.parser = parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         result = []
@@ -989,6 +991,7 @@ class Then(_GRParser):
     def __init__(self, first, second):
         self.first = promote(first)
         self.second = promote(second)
+        self.railroad_children = [self.first, self.second]
     
     def parse(self, text, position, end, space):
         firstResult = self.first.parse(text, position, end, space)
@@ -1040,6 +1043,7 @@ class Discard(_GRParser):
     """
     def __init__(self, parser):
         self.parser = parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
@@ -1067,6 +1071,7 @@ class First(_GRParser):
     """
     def __init__(self, *parsers):
         self.parsers = [promote(p) for p in parsers]
+        self.railroad_children = self.parsers
     
     def parse(self, text, position, end, space):
         expectedForErrors = []
@@ -1098,7 +1103,8 @@ class Longest(_GRParser):
     succeed, Longest fails.
     """
     def __init__(self, *parsers):
-        self.parsers = parsers
+        self.parsers = [promote(p) for p in parsers]
+        self.railroad_children = self.parsers
     
     def parse(self, text, position, end, space):
         expectedForErrors = []
@@ -1147,6 +1153,7 @@ class Translate(_GRParser):
     def __init__(self, parser, function):
         self.parser = parser
         self.function = function
+        self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
@@ -1194,6 +1201,7 @@ class Exact(_GRParser):
     def __init__(self, parser, space_parser=Invalid()):
         self.parser = parser
         self.space_parser = space_parser
+        self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
         position = parse_space(text, position, end, space)
@@ -1221,6 +1229,7 @@ class Optional(_GRParser):
     def __init__(self, parser, default=None):
         self.parser = parser
         self.default = default
+        self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
@@ -1359,6 +1368,10 @@ class Forward(_GRParser):
     def __init__(self, parser=None):
         self.parser = parser
     
+    @property
+    def railroad_children(self):
+        return [self.parser]
+    
     def parse(self, text, position, end, space):
         if not self.parser:
             raise Exception("Forward.parse was called before the specified "
@@ -1481,6 +1494,10 @@ class InfixExpr(_GRParser):
     def create_railroad(self, options):
         op_railroads = [_rr.create_railroad(v, options) for (v, function) in self.operators]
         return _rr.Loop(_rr.create_railroad(self.component, options), _rr.Or(*op_railroads))
+    
+    @property
+    def railroad_children(self):
+        return [self.component] + [op for (op, function) in self.operators]
     
     def __repr__(self):
         return "InfixExpr(%s, %s)" % (repr(self.component), repr(self.operators))
@@ -1993,6 +2010,9 @@ class Name(_GRParser):
     def __init__(self, name, parser):
         self.name = name
         self.parser = parser
+        self.railroad_production_name = name
+        self.railroad_production_delegate = parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         return self.parser.parse(text, position, end, space)
@@ -2013,6 +2033,8 @@ class Description(_GRParser):
     def __init__(self, description, parser):
         self.description = description
         self.parser = parser
+        # This should /not/ have any railroad children to prevent a Description
+        # object from being descended into when constructing railroad diagrams
     
     def parse(self, text, position, end, space):
         return self.parser.parse(text, position, end, space)
@@ -2107,13 +2129,15 @@ def list_dict(list_of_pairs):
     return result
 
 
-alpha_word = Word(alpha_chars)
-alphanum_word = Word(alphanum_chars)
-id_word = Word(alphanum_chars, init_chars=alpha_chars)
-title_word = Word(alphanum_chars, init_chars=upper_chars)
+alpha_word = Word(alpha_chars)(name="alpha word")
+alphanum_word = Word(alphanum_chars)(name="alphanum word")
+id_word = Word(alphanum_chars, init_chars=alpha_chars)(name="id word")
+title_word = Word(alphanum_chars, init_chars=upper_chars)(name="title word")
 
-integer = (+Digit())["".join]
-rational = (+Digit() + -(SignificantLiteral(".") + +Digit()))[flatten]["".join]
+digit = Digit()(name="digit")
+integer = (digit)["".join](name="integer")
+rational = (+digit + -(SignificantLiteral(".") + +digit)
+            )[flatten]["".join](name="rational")
 
 
 

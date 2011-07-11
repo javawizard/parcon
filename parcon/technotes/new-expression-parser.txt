@@ -1,0 +1,9 @@
+from parcon import rational, Forward, InfixExpr
+import operator
+expr = Forward()
+number = rational[float]
+term = number | "(" + expr + ")"
+term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
+term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
+expr << term(name="expr")
+expr.draw_productions_to_png({}, "/home/boydam/test.png")

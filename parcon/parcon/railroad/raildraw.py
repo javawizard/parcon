@@ -49,6 +49,7 @@ draw_functions = {}
 
 plain_font = pango.FontDescription("sans 10")
 bold_font = pango.FontDescription("sans bold 10")
+title_font = pango.FontDescription("sans bold 14")
 default_line_size = 2
 
 def create_options(map):
@@ -57,6 +58,9 @@ def create_options(map):
         raildraw_text_font=bold_font,
         raildraw_anycase_font=plain_font,
         raildraw_description_font=plain_font,
+        raildraw_title_font=title_font,
+        raildraw_title_before=35,
+        raildraw_title_after=45,
         raildraw_arrow_width=9,
         raildraw_arrow_height=7,
         raildraw_arrow_indent=0.25,
@@ -364,6 +368,8 @@ def draw_Loop(image, x, y, construct, options, forward):
     delimiter = construct.delimiter
     c_width, c_height, c_line_pos = size_of(image, component, options)
     d_width, d_height, d_line_pos = size_of(image, delimiter, options)
+    c_arrow = not isinstance(component, rr.Nothing)
+    d_arrow = not isinstance(delimiter, rr.Nothing)
     spacing = options.raildraw_loop_spacing
     radius = options.raildraw_loop_radius
     before = options.raildraw_loop_before
@@ -374,11 +380,11 @@ def draw_Loop(image, x, y, construct, options, forward):
     max_width = max(c_width, d_width)
     center_x = x + radius * 2 + arrow_width + before + (max_width / 2)
     draw_line(image, x, y + line_pos, x + radius * 2, y + line_pos)
-    options.raildraw_draw_arrow(image, x + radius * 2, y + line_pos - arrow_height / 2, options, forward)
+    draw_arrow_or_line(image, x + radius * 2, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
     draw_line(image, x + radius * 2 + arrow_width, y + line_pos, center_x - c_width / 2, y + line_pos)
     draw(image, center_x - c_width / 2, y, component, options, forward)
     draw_line(image, center_x + c_width / 2, y + line_pos, x + width - radius * 2 - arrow_width, y + line_pos)
-    options.raildraw_draw_arrow(image, x + width - radius * 2 - arrow_width, y + line_pos - arrow_height / 2, options, forward)
+    draw_arrow_or_line(image, x + width - radius * 2 - arrow_width, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
     draw_line(image, x + width - radius * 2, y + line_pos, x + width, y + line_pos)
     # Component and its two arrows and line drawn. Now draw the curve down and
     # the delimiter, and its arrows and lines.
@@ -387,11 +393,11 @@ def draw_Loop(image, x, y, construct, options, forward):
     image.line_to(x + radius, d_y + d_line_pos - radius)
     image.arc_negative(x + radius * 2, d_y + d_line_pos - radius, radius, radians(180), radians(90))
     image.stroke()
-    options.raildraw_draw_arrow(image, x + radius * 2, d_y + d_line_pos - arrow_height / 2, options, not forward)
+    draw_arrow_or_line(image, x + radius * 2, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
     draw_line(image, x + radius * 2 + arrow_width, d_y + d_line_pos, center_x - d_width / 2, d_y + d_line_pos)
     draw(image, center_x - d_width / 2, d_y, delimiter, options, not forward)
     draw_line(image, center_x + d_width / 2, d_y + d_line_pos, x + width - radius * 2 - arrow_width, d_y + d_line_pos)
-    options.raildraw_draw_arrow(image, x + width - radius * 2 - arrow_width, d_y + d_line_pos - arrow_height / 2, options, not forward)
+    draw_arrow_or_line(image, x + width - radius * 2 - arrow_width, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
     image.move_to(x + width - radius * 2, d_y + d_line_pos)
     image.arc_negative(x + width - radius * 2, d_y + d_line_pos - radius, radius, radians(90), radians(0))
     image.line_to(x + width - radius, y + line_pos + radius)
@@ -401,6 +407,13 @@ def draw_Loop(image, x, y, construct, options, forward):
 
 # FIXME: Test loops with components and delimiters that have different heights
 # and different line positions
+
+
+def draw_arrow_or_line(image, x, y, arrow_width, arrow_height, options, forward, arrow):
+    if arrow:
+        options.raildraw_draw_arrow(image, x, y, options, forward)
+    else:
+        draw_line(image, x, y + arrow_height / 2, x + arrow_width, y + arrow_height / 2)
 
 
 @f(size_functions, rr.Bullet)
@@ -420,11 +433,25 @@ def draw_Bullet(image, x, y, construct, options, forward):
 del f
 
 
+def draw_text(context, x, y, font, text):
+    pango_context = pangocairo.CairoContext(context)
+    layout = pango_context.create_layout()
+    layout.set_text(text)
+    layout.set_font_description(font)
+    context.move_to(x, y)
+    pango_context.show_layout(layout)
+    return layout.get_pixel_size()
+
+
 def draw_to_png(diagram, options, filename, forward=True):
     """
     Draws the specified railroad diagram, which should be an instance of
-    parcon.railroad.Component or one of its subclasses, into the PNG file at
-    the specified file name.
+    parcon.railroad.Component or one of its subclasses, or a dictionary, into
+    the PNG file at the specified file name.
+    
+    If the specified diagram is a dict, each of the diagrams contained as its
+    values will be drawn into the file, top to bottom, with the corresponding
+    keys (which should be strings) used as titles before each diagram.
     
     You can either manually create instances of any of
     parcon.railroad.Component's subclasses to pass to this method, or you can
@@ -435,18 +462,47 @@ def draw_to_png(diagram, options, filename, forward=True):
     dict; I'll get around to documenting the options that you can use here at
     some point.
     """
-    diagram = diagram.copy()
-    diagram.optimize()
+    if not isinstance(diagram, dict):
+        diagram = {"": dict}
     options = create_options(options)
+    before_title = options.raildraw_title_before
+    after_title = options.raildraw_title_after
     # Create an empty image to give size_of something to reference
     empty_image = cairo.ImageSurface(cairo.FORMAT_ARGB32, 1, 1)
     empty_context = cairo.Context(empty_image)
-    width, height, line_position = size_of(empty_context, diagram, options)
+    width, height = 0, 0
+    for name, d in diagram.items():
+        w, h, l = size_of(empty_context, d, options)
+        width, height = max(width, w), h + height
+    height += len(diagram) * (before_title + after_title)
     image = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width + 16), int(height + 16))
     context = cairo.Context(image)
-    context.set_line_width(options.raildraw_line_size)
-    draw(context, 8, 8, diagram, options, forward)
+    x = 8
+    y = 8
+    for name, d in diagram.items():
+        draw_text(context, x, y, options.raildraw_title_font, name + ":")
+        y += after_title
+        draw_to_context(context, d, options, filename, forward, x, y)
+        # FIXME: store the size as computed 10 or 20 lines above to avoid
+        # having to compute it twice
+        y += size_of(context, d, options)[1]
+        y += after_title
     image.write_to_png(filename)
+
+
+def draw_to_context(context, diagram, options, filename, forward=True, x=8, y=8):
+    """
+    Same as draw_to_png, but draws the specified railroad diagram to a context,
+    which should be an instance of cairo.Context, instead of to a PNG file.
+    draw_to_png actually delegates to this function to do the actual drawing.
+    
+    x and y are the position at which to draw the specified diagram.
+    """
+    diagram = diagram.copy()
+    diagram.optimize()
+    context.set_line_width(options.raildraw_line_size)
+    draw(context, x, y, diagram, options, forward)
+    
 
 
 
