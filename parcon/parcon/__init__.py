@@ -1830,7 +1830,6 @@ class Regex(_RParser):
     
     def create_railroad(self, options):
         expanded = _rr_regex.convert_regex(self.regex.pattern)
-        print expanded
         if expanded is None:
             return _rr.Token(_rr.DESCRIPTION, "regex: " + self.regex.pattern)
         else:

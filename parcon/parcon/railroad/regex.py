@@ -49,7 +49,9 @@ def init_parser():
     char = (p.AnyChar() - p.CharIn("[]().|\\"))
     backslash = ("\\" + p.AnyChar())[_translate_backslash]
     chars = (+(backslash | char))[p.concat][lambda x: rr.Token(rr.TEXT, x)]
-    component = char_class | chars | ("(" + expr + ")")
+    matching_group = "(" + expr + ")"
+    non_matching_group = "(?:" + expr + ")"
+    component = char_class | chars | non_matching_group | matching_group
     alt_component = (component + p.Optional(p.CharIn("*+?"), (None,)))[
         lambda (t, m): _convert_repetition(t, m)]
     alt_component = alt_component[...][lambda x: x[0] if len(x) == 1 else rr.Then(*x)]
