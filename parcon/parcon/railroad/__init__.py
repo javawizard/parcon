@@ -35,11 +35,17 @@ class Component(object):
     
     def optimize(self):
         pass
+    
+    def __repr__(self):
+        return self.__str__()
 
 
 class Nothing(Component):
     def copy(self):
         return Nothing()
+    
+    def __str__(self):
+        return "Nothing()"
 
 
 class Then(Component):
@@ -60,6 +66,9 @@ class Then(Component):
             self.constructs = new_constructs
         for construct in self.constructs:
             construct.optimize()
+    
+    def __str__(self):
+        return "Then(%s)" % ", ".join([repr(c) for c in self.constructs])
 
 
 class Or(Component):
@@ -80,6 +89,9 @@ class Or(Component):
             self.constructs = new_constructs
         for construct in self.constructs:
             construct.optimize()
+    
+    def __str__(self):
+        return "Or(%s)" % ", ".join([repr(c) for c in self.constructs])
 
 
 class Token(Component):
@@ -90,6 +102,9 @@ class Token(Component):
     
     def copy(self):
         return Token(self.type, self.text)
+    
+    def __str__(self):
+        return "Token(%s, %s)" % (repr(self.type), repr(self.text))
 
 
 class Loop(Component):
@@ -107,11 +122,17 @@ class Loop(Component):
             return
         self.component.optimize()
         self.delimiter.optimize()
+    
+    def __str__(self):
+        return "Loop(%s, %s)" % (repr(self.component), repr(self.delimiter))
 
 
 class Bullet(Component):
     def copy(self):
         return Bullet()
+    
+    def __str__(self):
+        return "Bullet()"
 
 
 class Railroadable(object):

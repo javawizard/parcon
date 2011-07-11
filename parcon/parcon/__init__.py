@@ -123,6 +123,7 @@ import re
 import collections
 from parcon.graph import Graphable as _Graphable
 from parcon import railroad as _rr
+from parcon.railroad import regex as _rr_regex
 
 upper_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 lower_chars = "abcdefghijklmnopqrstuvwxyz"
@@ -132,6 +133,10 @@ alphanum_chars = alpha_chars + digit_chars
 whitespace = " \t\r\n"
 
 Pair = collections.namedtuple("Pair", ("key", "value"))
+
+
+class ParseException(Exception):
+    pass
 
 
 class Expectation(object):
@@ -582,7 +587,7 @@ class Parser(object):
             # not trying to parse the entire string.
             return result.value
         else:
-            raise Exception("Parse failure: " + format_failure(result.expected))
+            raise ParseException("Parse failure: " + format_failure(result.expected))
         return result.value
     
     # All of the operators available to parsers
@@ -902,7 +907,7 @@ class Except(_GParser):
         return [self.parser, self.avoid_parser]
     
     def __repr__(self):
-        return "Except(%s, %s)" % (repr(self.parser), repr(self.avoidParser))
+        return "Except(%s, %s)" % (repr(self.parser), repr(self.avoid_parser))
 
 
 class ZeroOrMore(_GRParser):
@@ -1769,7 +1774,7 @@ class Not(_GParser):
         return "Not(%s)" % repr(self.parser)
 
 
-class Regex(Parser):
+class Regex(_RParser):
     """
     A parser that matches the specified regular expression. Its result depends
     on the groups_only parameter passed to the constructor: if groups_only is
@@ -1822,6 +1827,14 @@ class Regex(Parser):
         else:
             result = [regex_match.group()] + list(regex_match.groups(""))
         return match(position, result, [(position, EUnsatisfiable())])
+    
+    def create_railroad(self, options):
+        expanded = _rr_regex.convert_regex(self.regex.pattern)
+        print expanded
+        if expanded is None:
+            return _rr.Token(_rr.DESCRIPTION, "regex: " + self.regex.pattern)
+        else:
+            return expanded
     
     def __repr__(self):
         return "Regex(%s, %s)" % (repr(self.regex.pattern), repr(self.groups_only))
