@@ -746,7 +746,7 @@ class AnyCase(_GRParser):
         return "AnyCase(%s)" % repr(self.text)
 
 
-class CharIn(_GParser):
+class CharIn(_GRParser):
     """
     A parser that matches a single character as long as it is in the specified
     sequence (which can be a string or a list of one-character strings). It
@@ -766,6 +766,9 @@ class CharIn(_GParser):
     def do_graph(self, graph):
         graph.add_node(id(self), label='CharIn:\n%s' % repr(self.chars))
         return []
+    
+    def create_railroad(self, options):
+        return _rr.Or(*[_rr.Token(_rr.TEXT, c) for c in self.chars])
     
     def __repr__(self):
         return "CharIn(" + repr(self.chars) + ")"

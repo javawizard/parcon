@@ -198,7 +198,19 @@ the line height and curving down. We draw a similar line from there down to the
 same Y position as the line we just drew on the other side.
 
 Then we start with the second construct in the Or, and continue down through
-each construct. For each of them, we work out the line position of the
+each construct. For each of them, we work out the line position of the... hm...
+I sort of stopped writing a few days ago at that ellipsis, and never finished,
+but I just went ahead and implemented Or anyway... so yeah, read the source of
+parcon.railroad.raildraw for the rest.
+
+Loop, however, I haven't implemented yet, and I need to write that out in
+english to make my brain make sense of it. So...
+
+Loop.
+
+I imagine this will be quite similar to Or. This is essentially really the same
+as an Or with two alternatives, the angle of the descenders at the top changed,
+and with the second alternative reversed in direction.
 
 
 

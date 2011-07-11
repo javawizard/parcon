@@ -21,27 +21,64 @@ some_parser = "Hello, " + First("world", "all you people")
 draw_to_png(create_railroad(some_parser, {}), "test.png")
 """
 
+from itertools import chain
+
 PRODUCTION = 1
 TEXT = 2
 ANYCASE = 3
 DESCRIPTION = 4
 
 class Component(object):
-    pass
+    def copy(self):
+        raise NotImplementedError
+    
+    def optimize(self):
+        pass
 
 
 class Nothing(Component):
-    pass
+    def copy(self):
+        return Nothing()
 
 
 class Then(Component):
     def __init__(self, *constructs):
         self.constructs = list(constructs)
+    
+    def copy(self):
+        return Then(*[c.copy() for c in self.constructs])
+    
+    def optimize(self):
+        modified = True
+        while modified:
+            modified = False
+            old_constructs = self.constructs
+            new_constructs = list(chain(*[c.constructs if isinstance(c, Then) else [c] for c in old_constructs]))
+            if old_constructs != new_constructs:
+                modified = True
+            self.constructs = new_constructs
+        for construct in self.constructs:
+            construct.optimize()
 
 
 class Or(Component):
     def __init__(self, *constructs):
         self.constructs = list(constructs)
+    
+    def copy(self):
+        return Or(*[c.copy() for c in self.constructs])
+    
+    def optimize(self):
+        modified = True
+        while modified:
+            modified = False
+            old_constructs = self.constructs
+            new_constructs = list(chain(*[c.constructs if isinstance(c, Or) else [c] for c in old_constructs]))
+            if old_constructs != new_constructs:
+                modified = True
+            self.constructs = new_constructs
+        for construct in self.constructs:
+            construct.optimize()
 
 
 class Token(Component):
@@ -49,16 +86,31 @@ class Token(Component):
         assert type >= 1 and type <= 4
         self.type = type
         self.text = text
+    
+    def copy(self):
+        return Token(self.type, self.text)
 
 
 class Loop(Component):
     def __init__(self, component, delimiter):
         self.component = component
         self.delimiter = delimiter
+    
+    def copy(self):
+        return Loop(self.component.copy(), self.delimiter.copy())
+    
+    def optimize(self):
+        if isinstance(self.component, Loop):
+            self.component, self.delimiter = self.component.component, Or(self.component.delimiter, self.delimiter)
+            self.optimize()
+            return
+        self.component.optimize()
+        self.delimiter.optimize()
 
 
 class Bullet(Component):
-    pass
+    def copy(self):
+        return Bullet()
 
 
 class Railroadable(object):
@@ -87,6 +139,9 @@ def create_railroad(value, options):
                         "class " + str(type(value)) + " but that type is not a "
                         "subclass of Railroadable, so this is not allowed.")
     return value.create_railroad(options)
+
+
+
 
 
 
