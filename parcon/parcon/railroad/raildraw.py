@@ -370,6 +370,9 @@ def draw_Loop(image, x, y, construct, options, forward):
     d_width, d_height, d_line_pos = size_of(image, delimiter, options)
     c_arrow = not isinstance(component, rr.Nothing)
     d_arrow = not isinstance(delimiter, rr.Nothing)
+    # For now, if the delimiter is Nothing, don't draw the component's arrows
+    if not d_arrow:
+        c_arrow = False
     spacing = options.raildraw_loop_spacing
     radius = options.raildraw_loop_radius
     before = options.raildraw_loop_before
