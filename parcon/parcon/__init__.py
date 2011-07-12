@@ -1,9 +1,11 @@
 """
 parcon.py
 
-Parcon is a parser library written by Alexander Boyd. (His email
-address is alex at open groove dot org, with no space in between "open" and
-"groove".)
+Parcon is a parser library written by Alexander Boyd and James Stoker. It's
+designed to be fast, easy to use, and to provide informative error messages.
+
+(and it's designed to include new, awesome things, like syntax diagram
+generators.)
 
 Technically, it's a monadic parser combinator library, but you don't need to
 know that unless you're doing really fancy things. (The bind and return
@@ -68,7 +70,7 @@ A simple expression evaluator written using Parcon:
 >>> term = number | "(" + expr + ")"
 >>> term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
 >>> term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
->>> expr << term
+>>> expr << term(name="expr")
 
 Some example expressions that can now be evaluated using the above
 simple expression evaluator:
