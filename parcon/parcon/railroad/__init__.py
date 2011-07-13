@@ -13,12 +13,10 @@ image.
 Here's a really simple example that uses raildraw to draw a syntax diagram:
 
 from parcon import First
-from parcon.railroad import create_railroad
-from parcon.railroad.raildraw import draw_to_png
 # Create a parser to draw
 some_parser = "Hello, " + First("world", "all you people")
 # Then draw a diagram of it.
-draw_to_png(create_railroad(some_parser, {}), "test.png")
+some_parser.draw_railroad_to_png({}, "test.png")
 """
 
 from itertools import chain
