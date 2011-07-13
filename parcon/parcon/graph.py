@@ -99,6 +99,8 @@ class Graph(object):
         self.nodes = {} # map of node names to maps of node attributes
         self.edges = [] # list of edges as (from_name, to_name, attribute_map)
         self.top_node = None
+        self.separator = "->"
+        self.graph_type = "digraph"
     
     def add_node(self, name, **attributes):
         """
@@ -136,11 +138,11 @@ class Graph(object):
         """
         format_attributes = lambda attributes: ", ".join(k + '="' + escape_string(v) + '"' for k, v in attributes.items())
         result = []
-        result.append("digraph g {")
+        result.append(self.graph_type + " g {")
         for node, attributes in self.nodes.items():
             result.append("    " + str(node) + " [" + format_attributes(attributes) + "];")
         for source, target, attributes in self.edges:
-            result.append("    " + str(source) + " -> " + str(target) + " [" + format_attributes(attributes) + "];")
+            result.append("    " + str(source) + " " + self.separator + " " + str(target) + " [" + format_attributes(attributes) + "];")
         if self.top_node is not None:
             result.append('    {rank="min"; ' + str(self.top_node) + "}")
         result.append("}")
