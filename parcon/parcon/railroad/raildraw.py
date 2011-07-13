@@ -59,7 +59,7 @@ def create_options(map):
         raildraw_anycase_font=plain_font,
         raildraw_description_font=plain_font,
         raildraw_title_font=title_font,
-        raildraw_title_before=35,
+        raildraw_title_before=45,
         raildraw_title_after=45,
         raildraw_arrow_width=9,
         raildraw_arrow_height=7,
@@ -279,6 +279,8 @@ def draw_Then(image, x, y, construct, options, forward):
 @f(size_functions, rr.Or)
 def size_of_Or(image, construct, options):
     constructs = construct.constructs
+    if len(constructs) == 1:
+        return size_of(image, constructs[0], options)
     sizes = [size_of(image, c, options) for c in constructs]
     max_width = max(sizes, key=lambda (w, h, l): w)[0]
     total_height = sum([h for w, h, l in sizes])
@@ -292,6 +294,8 @@ def size_of_Or(image, construct, options):
 
 @f(draw_functions, rr.Or)
 def draw_Or(image, x, y, construct, options, forward):
+    if len(construct.constructs) == 1:
+        return draw(image, x, y, construct.constructs[0], options, forward)
     width, height, line_position = size_of_Or(image, construct, options)
     constructs = construct.constructs
     sizes = [size_of(image, c, options) for c in constructs]
@@ -305,11 +309,16 @@ def draw_Or(image, x, y, construct, options, forward):
         before, after = after, before
     current_y = y
     for index, (c, (w, h, l)) in enumerate(zip(constructs, sizes)):
+        draw_arrows = not isinstance(c, rr.Nothing)
+        # Don't draw arrows if c is a loop and its component is not Nothing;
+        # the arrows tend to appear superfluous in such a case
+        if isinstance(c, rr.Loop) and not isinstance(c.component, rr.Nothing):
+            draw_arrows = False
         if index != 0:
             image.move_to(x + radius, current_y + l - radius)
             image.arc_negative(x + radius * 2, current_y + l - radius, radius, radians(180), radians(90))
             image.stroke()
-        if isinstance(c, rr.Nothing):
+        if not draw_arrows:
             draw_line(image, x + radius * 2, current_y + l, x + radius * 2 + arrow_width, current_y + l)
         else:
             options.raildraw_draw_arrow(image, x + radius * 2, current_y + l - (arrow_height / 2), options, forward)
@@ -322,7 +331,7 @@ def draw_Or(image, x, y, construct, options, forward):
         else:
             draw(image, construct_x, current_y, c, options, forward)
             draw_line(image, construct_x + w, current_y + l, construct_x + max_width + after, current_y + l)
-        if isinstance(c, rr.Nothing):
+        if not draw_arrows:
             draw_line(image, construct_x + max_width + after, current_y + l, construct_x + max_width + after + arrow_width, current_y + l)
         else:
             options.raildraw_draw_arrow(image, construct_x + max_width + after, current_y + l - (arrow_height / 2), options, forward)
@@ -489,7 +498,7 @@ def draw_to_png(diagram, options, filename, forward=True):
         # FIXME: store the size as computed 10 or 20 lines above to avoid
         # having to compute it twice
         y += size_of(context, d, options)[1]
-        y += after_title
+        y += before_title
     image.write_to_png(filename)
 
 
