@@ -37,14 +37,13 @@ a separate language for writing grammars or anything like that.
 
 Here's an example of a simple expression evaluator written using Parcon::
 
-    from parcon import rational, Forward, InfixExpr
+    from parcon import number, Forward, InfixExpr
     import operator
     expr = Forward()
-    number = rational[float]
-    term = number | "(" + expr + ")"
+    term = number[float] | "(" + expr + ")"
     term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
     term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
-    expr << term
+    expr << term(name="expr")
 
 This expression evaluator can be used thus::
 
@@ -56,8 +55,13 @@ This expression evaluator can be used thus::
     print expr.parse_string("(5+3)*4") # prints 32
     print expr.parse_string("10/4") # prints 2.5
 
+A syntax diagram can then be generated from it like this::
+
+    expr.draw_productions_to_png({}, "expr-syntax.png")
+
 More examples can be found on `Parcon's blog <http://blog.parcon.opengroove.org>`_,
 and more information in general can be found at `Parcon's website <http://parcon.opengroove.org>`_.
+But reports should be submitted to <a href="">the GitHub issue tracker</a>.
 
 Parcon is currently much more comprehensively documented than Pargen and Static
 are. Improved documentation for Pargen and Static will come soon.

@@ -32,13 +32,13 @@ perhaps take a look at this example:
 ['a']
 >>> parser.parse_string("")
 Traceback (most recent call last):
-Exception: Parse failure: At position 0: expected one of "("
+ParseException: Parse failure: At position 0: expected one of "("
 >>> parser.parse_string("(a")
 Traceback (most recent call last):
-Exception: Parse failure: At position 2: expected one of "a", "b", ")"
+ParseException: Parse failure: At position 2: expected one of "a", "b", ")"
 >>> parser.parse_string("(ababacababa)")
 Traceback (most recent call last):
-Exception: Parse failure: At position 6: expected one of "a", "b", ")"
+ParseException: Parse failure: At position 6: expected one of "a", "b", ")"
 
 The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
@@ -63,11 +63,10 @@ x(desc="test") or x(description="test") is the same as Desc("test", x)
 
 A simple expression evaluator written using Parcon:
 
->>> from parcon import rational, Forward, InfixExpr
+>>> from parcon import number, Forward, InfixExpr
 >>> import operator
 >>> expr = Forward()
->>> number = rational[float]
->>> term = number | "(" + expr + ")"
+>>> term = number[float] | "(" + expr + ")"
 >>> term = InfixExpr(term, [("*", operator.mul), ("/", operator.truediv)])
 >>> term = InfixExpr(term, [("+", operator.add), ("-", operator.sub)])
 >>> expr << term(name="expr")
@@ -89,6 +88,10 @@ simple expression evaluator:
 32.0
 >>> expr.parse_string("10/4")
 2.5
+
+A syntax diagram can also be generated for the expression parser with:
+
+expr.draw_productions_to_png({}, "expr-syntax.png")
 
 Another example use of Parcon, this one being a JSON parser (essentially
 a reimplementation of Python's json.dumps, without all of the fancy
@@ -1859,7 +1862,7 @@ class Expected(Parser):
     
     >>> something.parse_string("bogus")
     Traceback (most recent call last):
-    Exception: Parse failure: At position 0: expected one of any char in "0123456789", "true", "false"
+    ParseException: Parse failure: At position 0: expected one of any char in "0123456789", "true", "false"
     
     which isn't very pretty or informative. If, instead, you did this:
     
@@ -1871,7 +1874,7 @@ class Expected(Parser):
     
     >>> something.parse_string("bogus")
     Traceback (most recent call last):
-    Exception: Parse failure: At position 0: expected one of decimal number, "true", "false"
+    ParseException: Parse failure: At position 0: expected one of decimal number, "true", "false"
     
     which is more informative as to what's missing.
     
@@ -2150,8 +2153,9 @@ title_word = Word(alphanum_chars, init_chars=upper_chars)(name="title word")
 
 digit = Digit()(name="digit")
 integer = (digit)["".join](name="integer")
-rational = (+digit + -(SignificantLiteral(".") + +digit)
-            )[flatten]["".join](name="rational")
+number = (+digit + -(SignificantLiteral(".") + +digit)
+            )[flatten]["".join](name="number")
+rational = number
 
 
 
