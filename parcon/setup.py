@@ -61,7 +61,7 @@ A syntax diagram can then be generated from it like this::
 
 More examples can be found on `Parcon's blog <http://blog.parcon.opengroove.org>`_,
 and more information in general can be found at `Parcon's website <http://parcon.opengroove.org>`_.
-But reports should be submitted to <a href="https://github.com/javawizard/parcon/issues">the GitHub issue tracker</a>.
+But reports should be submitted to `the GitHub issue tracker <https://github.com/javawizard/parcon/issues>`_.
 
 Parcon is currently much more comprehensively documented than Pargen and Static
 are. Improved documentation for Pargen and Static will come soon.
