@@ -1286,6 +1286,13 @@ class Repeat(_GParser):
         self.max = max
     
     def parse(self, text, position, end, space):
+        if self.max == 0: # This does actually happen some times;
+            # specifically, it came up in a parser that James Stoker was
+            # writing to parse CIDRs in BGP packets
+            return match(position, [], (position, EUnsatisfiable()))
+        if self.min == 1 and self.max == 1: # Optimization to short-circuit
+            # into the underlying parser if we're parsing exactly one of it
+            return self.parser.parse(text, position, end, space)
         result = []
         parse_result = None
         for i in (xrange(self.max) if self.max is not None else itertools.count(0)):
