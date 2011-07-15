@@ -468,11 +468,8 @@ def parse_space(text, position, end, space):
     # pass Invalid() as the whitespace parser to avoid indefinite recursion
     # because we try to remove the whitespace from before the whitespace parser
     # and so on.
-    result = space.parse(text, position, end, Invalid())
-    while result:
-        position = result.end
-        result = space.parse(text, position, end, Invalid())
-    return position
+    raise Exception("parse_space is now defunct. Something just called it, "
+            "however, so that something needs to be fixed.")
 
 
 def promote(value):
@@ -597,6 +594,13 @@ class Parser(object):
             raise ParseException("Parse failure: " + format_failure(result.expected))
         return result.value
     
+    def consume(self, text, position, end):
+        result = self.parse(text, position, end, Invalid())
+        while result:
+            position = result.end
+            result = self.parse(text, position, end, Invalid())
+        return position
+        
     # All of the operators available to parsers
     
     def __add__(self, other):
@@ -685,7 +689,7 @@ class Literal(_GRParser):
         self.text = text
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end] == self.text:
             return match(expected_end, None, [(expected_end, EUnsatisfiable())])
@@ -711,7 +715,7 @@ class SignificantLiteral(Literal):
     None.
     """
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end] == self.text:
             return match(expected_end, self.text, [(expected_end, EUnsatisfiable())])
@@ -740,7 +744,7 @@ class AnyCase(_GRParser):
         self.text = text.lower()
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end].lower() == self.text:
             return match(expected_end, None, [(expected_end, EUnsatisfiable())])
@@ -768,7 +772,7 @@ class CharIn(_GRParser):
         self.chars = chars
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         expected_end = position + 1
         if position < end and text[position:expected_end] in self.chars:
             return match(expected_end, text[position], [(expected_end, EUnsatisfiable())])
@@ -852,6 +856,9 @@ class Whitespace(CharIn):
     """
     def __init__(self):
         CharIn.__init__(self, whitespace)
+        # Speed optimization
+        regex = re.compile(r"[ \t\r\n]*")
+        self.consume = lambda t, p, e: regex.match(t, p, e).end()
     
     def __repr__(self):
         return "Whitespace()"
@@ -867,7 +874,7 @@ class AnyChar(_GRParser):
     it matched.
     """
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         if position < end: # At least one char left
             return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
         else:
@@ -1216,7 +1223,7 @@ class Exact(_GRParser):
         self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         return self.parser.parse(text, position, end, self.space_parser)
     
     def do_graph(self, graph):
@@ -1603,7 +1610,7 @@ class Chars(_GParser):
         self.number = number
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         if position + self.number > end:
             return failure([(end, EAnyChar())])
         result = text[position:position + self.number]
@@ -1645,7 +1652,7 @@ class Word(Parser):
         self.max = max
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         if position >= end or text[position:position + 1] not in self.init_chars: # Initial char
             # not present or not one of the ones we expected
             if min == 0:
@@ -1822,7 +1829,7 @@ class Regex(_RParser):
         self.groups_only = groups_only
     
     def parse(self, text, position, end, space):
-        position = parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         regex_match = self.regex.match(text, position, end)
         if not regex_match:
             return failure([(position, ERegex(self.regex.pattern))])
@@ -1896,7 +1903,7 @@ class Expected(Parser):
     
     def parse(self, text, position, end, space):
         if self.remove_whitespace:
-            position = parse_space(text, position, end, space)
+            position = space.consume(text, position, end)
         result = self.parser.parse(text, position, end, space)
         if not result:
             return failure([(position, ECustomExpectation(self.expected_message))])
@@ -2030,7 +2037,7 @@ class End(_GParser):
     passed to the parse function, then this parser matches. Otherwise, it fails.
     """
     def parse(self, text, position, end, space):
-        new_position = parse_space(text, position, end, space)
+        new_position = space.consume(text, position, end)
         if new_position == end:
             return match(position, None, [(position, EUnsatisfiable())])
         else:
