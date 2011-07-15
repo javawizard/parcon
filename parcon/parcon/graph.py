@@ -86,14 +86,17 @@ class Graph(object):
     A graph. Instances of this class represent a graph of nodes and edges, with
     nodes and edges both being able to have attributes.
     
-    Technically, this class represents a directed graph. I may add support for
-    undirected graphs later.
+    This class is, by default, set up to create directed graphs. You can
+    create undirected ones by setting a graph's separator field to "--" and
+    that same graph's graph_type field to "graph".
     
     I wrote my own class instead of using pygraphviz because the underlying
     library that pygraphviz uses doesn't preserve node ordering when writing
     output, which results in ordering="out" not working correctly; Parcon
     depends on ordering="out" to lay out parsers correctly, hence this class
     provided as a replacement.
+    
+    This class is also pure-Python, whereas pygraphviz is not.
     """
     def __init__(self):
         self.nodes = {} # map of node names to maps of node attributes
