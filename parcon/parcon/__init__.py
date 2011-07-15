@@ -1937,8 +1937,8 @@ class Limit(Parser):
         self.parser = parser
     
     def parse(self, text, position, end, space):
-        if isinstance(self.limit, Parser):
-            result = self.limit.parse(text, position, end, space)
+        if isinstance(self.length, Parser):
+            result = self.length.parse(text, position, end, space)
             if not result:
                 return failure(result.expected)
             position = result.end
