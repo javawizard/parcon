@@ -20,22 +20,24 @@ class PyStruct(parcon.Parser):
     def parse(self, text, position, end, space):
         position = parcon.parse_space(text, position, end, space)
         if position + self.length > end:
-            return parcon.failure([(position, "struct.unpack format " + repr(self.format))])
+            return parcon.failure([(position, parcon.ECustomExpectation("struct.unpack format " + repr(self.format)))])
         result =  struct.unpack(self.format, text[position:position+self.length])
         if len(result) == 1:
-            return result[0]
-        return list(result)
+            result = result[0]
+        else:
+            result = list(result)
+        return parcon.match(position + self.length, result, (position + self.length, parcon.EUnsatisfiable()))
     
     def __repr__(self):
         return "PyStruct(%s)" % repr(self.format)
 
 
 integer = PyStruct(">i")(expected="four bytes (signed integer)")
-u_integer = PyStruct(">I")(expected="four bytes (signed integer)")
+u_integer = PyStruct(">I")(expected="four bytes (unsigned integer)")
 short = PyStruct(">h")(expected="two bytes (signed short)")
-u_short = PyStruct(">H")(expected="two bytes (signed short)")
+u_short = PyStruct(">H")(expected="two bytes (unsigned short)")
 byte = PyStruct(">b")(expected="one byte (signed byte)")
-u_byte = PyStruct(">B")(expected="one byte (signed byte)")
+u_byte = PyStruct(">B")(expected="one byte (unsigned byte)")
 
 
 
