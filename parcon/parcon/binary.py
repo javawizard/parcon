@@ -34,7 +34,7 @@ class PyStruct(parcon.Parser):
         self.length = struct.calcsize(format)
     
     def parse(self, text, position, end, space):
-        position = parcon.parse_space(text, position, end, space)
+        position = space.consume(text, position, end)
         if position + self.length > end:
             return parcon.failure([(position, parcon.ECustomExpectation("struct.unpack format " + repr(self.format)))])
         result =  struct.unpack(self.format, text[position:position+self.length])
