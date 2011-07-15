@@ -57,7 +57,9 @@ This expression evaluator can be used thus::
 
 A syntax diagram can then be generated from it like this::
 
-    expr.draw_productions_to_png({}, "expr-syntax.png")
+    expr.draw_productions_to_png({}, "syntax-expr.png")
+
+which would draw `this image <http://www.opengroove.org/syntax-expr.png>`_ to syntax-expr.png.
 
 More examples can be found on `Parcon's blog <http://blog.parcon.opengroove.org>`_,
 and more information in general can be found at `Parcon's website <http://parcon.opengroove.org>`_.
