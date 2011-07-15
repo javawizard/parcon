@@ -134,6 +134,10 @@ class Bullet(Component):
 
 
 class Railroadable(object):
+    """
+    A class representing an object that can be drawn as a railroad diagram.
+    Most Parcon parsers subclass this class in addition to parcon.Parser.
+    """
     railroad_children = []
     railroad_production_name = None
     railroad_production_delegate = None
