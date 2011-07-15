@@ -1,4 +1,20 @@
 
+"""
+A module that provides parsers to allow Parcon to parse binary data. Some of
+the main parsers it provides are:
+
+integer: parses four bytes in big-endian order and returns an int.
+short: parses two bytes in big-endian order and returns an int.
+byte: parses one byte and returns an int.
+u_integer, u_short, u_byte: same as integer, short, and byte, respectively,
+except that they treat the value as unsigned.
+
+This module also provides a class, PyStruct, which is created with a format
+specification (in the same format as that passed to Python's
+struct.pack/unpack). It parses any data that matches the specification, and
+returns the resulting values.
+"""
+
 import parcon
 import struct
 
