@@ -555,6 +555,8 @@ def op_call(parser, *args, **kwargs):
         return Description(kwargs["desc"], parser)
     if kwargs.get("description") is not None:
         return Description(kwargs["description"], parser)
+    if kwargs.get("expected") is not None:
+        return Expected(parser, kwargs["expected"])
     raise NotImplementedError
 
 
@@ -1901,7 +1903,7 @@ class Expected(Parser):
         return result
     
     def __repr__(self):
-        return "Expected(%s, %s, %s" % (repr(self.parser),
+        return "Expected(%s, %s, %s)" % (repr(self.parser),
                 repr(self.expected_message), repr(self.remove_whitespace))
 
 
@@ -1909,7 +1911,7 @@ class Limit(Parser):
     """
     A parser that imposes a limit on how much input its underlying parser can
     consume. All parsers, when asked to parse text, are passed the position
-    that they can parse to before they have to stop; normall this is the length
+    that they can parse to before they have to stop; normally this is the length
     of the string being passed in. Limit, however, allows this to be set to a
     smaller value.
     
@@ -1917,13 +1919,32 @@ class Limit(Parser):
     call and the number of characters that the specified parser can consume.
     If there aren't that many characters left in the input string, no limit is
     placed on what the specified parser can consume.
+    
+    You can also pass a parser instead of a number as the limit for how many
+    characters can be parsed. If you do that, Limit will apply that parser
+    first, then take its result (which should be an int or a long) and use
+    that as the limit when applying the main parser.
+    
+    The behavior of the latter paragraph allows you to write parsers that
+    parse length-specified values. For example, if you're parsing some sort of
+    string from a piece of binary data where the string is stored as four
+    bytes representing the length of the string followed by the bytes of the
+    string itself, you could do that with
+    Limit(parcon.binary.integer, ZeroOrMore(AnyChar()))[concat].
     """
     def __init__(self, length, parser):
         self.length = length
         self.parser = parser
     
     def parse(self, text, position, end, space):
-        limit = position + self.length
+        if isinstance(self.limit, Parser):
+            result = self.limit.parse(text, position, end, space)
+            if not result:
+                return failure(result.expected)
+            position = result.end
+            limit = position + result.value
+        else:
+            limit = position + self.length
         if limit > end:
             limit = end
         return self.parser.parse(text, position, limit, space)
