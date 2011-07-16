@@ -1657,8 +1657,8 @@ class Word(Parser):
             init_chars = chars
         if min < 1:
             raise Exception("min must be greater than zero")
-        self.init_pattern = re.compile("[%s]" % init_chars)
-        self.pattern = re.compile("[%s]{,%s}" % (
+        self.pattern = re.compile("[%s][%s]{,%s}" % (
+                re.escape(init_chars),
                 re.escape(chars),
                 "" if max is None else max - 1
                 ))
@@ -1669,12 +1669,11 @@ class Word(Parser):
     
     def parse(self, text, position, end, space):
         position = space.consume(text, position, end)
-        init_result = self.init_pattern.match(text, position, end)
-        if not init_result:
-            return failure((position, EAnyCharIn(self.init_chars)))
-        result = self.pattern.match(text, position + 1, end)
+        result = self.pattern.match(text, position, end)
         # We'll always have a result here, we just need to check and make sure
         # it consumed the required number of characters
+        if not result:
+            return failure((position, EAnyCharIn(self.init_chars)))
         total_consumed = result.end() - position
         new_position = result.end()
         if total_consumed < self.min:
@@ -1683,7 +1682,7 @@ class Word(Parser):
             expected = (new_position, EAnyCharIn(self.chars))
         else:
             expected = (new_position, EUnsatisfiable())
-        return match(new_position, init_result.group(0) + result.group(0),
+        return match(new_position, result.group(0),
                 expected)
     
     def __repr__(self):
