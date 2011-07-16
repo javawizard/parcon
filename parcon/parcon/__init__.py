@@ -323,7 +323,10 @@ class Result(object):
         self.value = value
         if not isinstance(expected, list):
             expected = [expected]
-        expectation_list_type.check_matches(expected)
+        # This was causing performance to significantly degrade, so it's gone
+        # for now. I might add some sort of switch to selectively enable it
+        # at some point.
+        # expectation_list_type.check_matches(expected)
         self.expected = expected
     
     def __nonzero__(self):
@@ -1211,7 +1214,7 @@ class Exact(_GRParser):
     consumed all of the space in the string literal. This can, however, be
     rewritten using Exact to mitigate this problem:
 
-    >>> stringLiteral = '"' + Exact(ZeroOrMore(AnyChar() - '"'))["".join] + '"'
+    >>> stringLiteral = Exact('"' + ZeroOrMore(AnyChar() - '"')["".join] + '"')
     >>> stringLiteral.parse_string('"Hello, great big round world"')
     'Hello, great big round world'
     
@@ -1650,33 +1653,38 @@ class Word(Parser):
     The empty string will be returned in such a case.
     """
     def __init__(self, chars, init_chars=None, min=1, max=None):
+        if init_chars is None:
+            init_chars = chars
+        if min < 1:
+            raise Exception("min must be greater than zero")
+        self.init_pattern = re.compile("[%s]" % init_chars)
+        self.pattern = re.compile("[%s]{,%s}" % (
+                re.escape(chars),
+                "" if max is None else max - 1
+                ))
         self.chars = chars
-        if init_chars:
-            self.init_chars = init_chars
-        else:
-            self.init_chars = chars
+        self.init_chars = init_chars
         self.min = min
         self.max = max
     
     def parse(self, text, position, end, space):
         position = space.consume(text, position, end)
-        if position >= end or text[position:position + 1] not in self.init_chars: # Initial char
-            # not present or not one of the ones we expected
-            if min == 0:
-                return match(position, "", [(position, EAnyCharIn(self.init_chars))])
-            else:
-                return failure([(position, EAnyCharIn(self.init_chars))])
-        # Found initial char. Store it, then start parsing the rest of the chars
-        char_list = [text[position]]
-        position += 1
-        parsed_so_far = 1
-        while position < end and text[position:position + 1] in self.chars and (self.max is None or parsed_so_far < self.max):
-            char_list.append(text[position])
-            position += 1
-            parsed_so_far += 1
-        if len(char_list) < self.min:
-            return failure([(position, EAnyCharIn(self.chars))])
-        return match(position, "".join(char_list), [(position, EAnyCharIn(self.chars))])
+        init_result = self.init_pattern.match(text, position, end)
+        if not init_result:
+            return failure((position, EAnyCharIn(self.init_chars)))
+        result = self.pattern.match(text, position + 1, end)
+        # We'll always have a result here, we just need to check and make sure
+        # it consumed the required number of characters
+        total_consumed = result.end() - position
+        new_position = result.end()
+        if total_consumed < self.min:
+            return failure((result.end(), EAnyCharIn(self.chars)))
+        if total_consumed < self.max:
+            expected = (new_position, EAnyCharIn(self.chars))
+        else:
+            expected = (new_position, EUnsatisfiable())
+        return match(new_position, init_result.group(0) + result.group(0),
+                expected)
     
     def __repr__(self):
         return "Word(%s, %s, %s, %s)" % (repr(self.chars), repr(self.init_chars),
