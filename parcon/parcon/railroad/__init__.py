@@ -184,10 +184,16 @@ class Railroadable(object):
         _raildraw.draw_to_png(diagram, options, filename)
         del _raildraw
     
-    def draw_productions_to_png(self, options, filename):
+    def draw_productions_to_png(self, options, filename, tail=[]):
         productions = self.get_productions()
         if len(productions) == 0:
             raise Exception("No named productions to generate")
+        # Sort the specified tail productions to the end
+        for name in tail:
+            if name in productions:
+                value = productions[name]
+                del productions[name]
+                productions[name] = value
         from parcon.railroad import raildraw as _raildraw
         _raildraw.draw_to_png(ordered_dict.OrderedDict([(k,
             Then(Bullet(), v.create_railroad(options), Bullet()))

@@ -249,6 +249,22 @@ class EAnyCharIn(Expectation):
         return "EAnyCharIn(%s)" % repr(self.chars)
 
 
+class EAnyCharNotIn(Expectation):
+    """
+    An expectation indicating that any character not in a particular sequence of
+    characters (a list of one-character strings, or a string containing the
+    expected characters) was expected.
+    """
+    def __init__(self, chars):
+        self.chars = chars
+    
+    def format(self):
+        return 'any char not in "' + "".join(self.chars) + '"'
+    
+    def __str__(self):
+        return "EAnyCharNotIn(%s)" % repr(self.chars)
+
+
 class EAnyChar(Expectation):
     """
     An expectation indicating that any character was expected.
@@ -791,6 +807,30 @@ class CharIn(_GRParser):
     
     def __repr__(self):
         return "CharIn(" + repr(self.chars) + ")"
+
+
+class CharNotIn(_GParser):
+    """
+    A parser that matches a single character as long as it is not in the
+    specified sequence. This is much the opposite of CharIn.
+    """
+    def __init__(self, chars):
+        self.chars = chars
+    
+    def parse(self, text, position, end, space):
+        position = space.consume(text, position, end)
+        expected_end = position + 1
+        if position < end and text[position:expected_end] not in self.chars:
+            return match(expected_end, text[position], [(expected_end, EUnsatisfiable())])
+        else:
+            return failure([(position, EAnyCharNotIn(self.chars))])
+    
+    def do_graph(self, graph):
+        graph.add_node(id(self), label='CharNotIn:\n%s' % repr(self.chars))
+        return []
+    
+    def __repr__(self):
+        return "CharNotIn(" + repr(self.chars) + ")"
 
 
 class Digit(CharIn):
@@ -2195,7 +2235,7 @@ title_word = Word(alphanum_chars, init_chars=upper_chars)(name="title word")
 
 digit = Digit()(name="digit")
 integer = (digit)["".join](name="integer")
-number = (+digit + -(SignificantLiteral(".") + +digit)
+number = (-CharIn("+-") + +digit + -(SignificantLiteral(".") + +digit)
             )[flatten]["".join](name="number")
 rational = number
 
