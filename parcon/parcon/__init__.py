@@ -1365,7 +1365,7 @@ class Repeat(_GParser):
         return "Repeat(%s, %s, %s)" % (repr(self.parser), repr(self.min), repr(self.max))
 
 
-class Keyword(_GParser):
+class Keyword(_GRParser):
     """
     A parser that matches the specified parser as long as it is followed
     immediately by the specified terminator parser, or by whitespace
@@ -1375,6 +1375,7 @@ class Keyword(_GParser):
     def __init__(self, parser, terminator=None):
         self.parser = promote(parser)
         self.terminator = promote(terminator) if terminator is not None else None
+        self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
         if self.terminator:
@@ -1395,6 +1396,9 @@ class Keyword(_GParser):
         if self.terminator is not None:
             graph.add_node(id(self), id(self.terminator), label="terminator")
         return [self.parser] + [self.terminator] if self.terminator is not None else []
+    
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
     
     def __repr__(self):
         return "Keyword(%s, %s)" % (repr(self.parser), repr(self.terminator))
