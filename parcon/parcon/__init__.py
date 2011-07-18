@@ -1394,7 +1394,7 @@ class Keyword(_GRParser):
         result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
-        terminatorResult = terminator.parse(text, result.end, space)
+        terminatorResult = terminator.parse(text, result.end, end, space)
         if not terminatorResult:
             return failure(terminatorResult.expected)
         return result
