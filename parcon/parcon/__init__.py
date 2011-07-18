@@ -605,13 +605,18 @@ class Parser(object):
         if whitespace is None:
             whitespace = Whitespace()
         result = self.parse(string, 0, len(string), whitespace)
-        if result and (result.end == len(string) or not all):
-            # Result matched, and either the entire string was parsed or we're
-            # not trying to parse the entire string.
-            return result.value
-        else:
-            raise ParseException("Parse failure: " + format_failure(result.expected))
-        return result.value
+        if result:
+            if not all: # We got a result back and we're not trying to match
+                # everything, so regardless of what the result was, we should
+                # return it.
+                return result.value
+            # Result matched and we're trying to match everything, so we ask
+            # the whitespace parser to consume everything at the end, then
+            # check to see if the end position is equal to the string length,
+            # and if it is, we return the value.
+            if whitespace.consume(string, result.end, len(string)) == len(string):
+                return result.value
+        raise ParseException("Parse failure: " + format_failure(result.expected))
     
     def consume(self, text, position, end):
         result = self.parse(text, position, end, Invalid())
@@ -1073,19 +1078,20 @@ class Then(_GRParser):
         if not secondResult:
             return failure(firstResult.expected + secondResult.expected)
         position = secondResult.end
+        expectations = firstResult.expected + secondResult.expected
         a, b = firstResult.value, secondResult.value
         if a is None:
-            return match(position, b, secondResult.expected)
+            return match(position, b, expectations)
         elif b is None:
-            return match(position, a, secondResult.expected)
+            return match(position, a, expectations)
         if type(a) == tuple and type(b) == tuple:
-            return match(position, a + b, secondResult.expected)
+            return match(position, a + b, expectations)
         elif type(a) == tuple:
-            return match(position, a + (b,), secondResult.expected)
+            return match(position, a + (b,), expectations)
         elif type(b) == tuple:
-            return match(position, (a,) + b, secondResult.expected)
+            return match(position, (a,) + b, expectations)
         else:
-            return match(position, (a, b), secondResult.expected)
+            return match(position, (a, b), expectations)
     
     
     def do_graph(self, graph):
@@ -1149,7 +1155,7 @@ class First(_GRParser):
         for parser in self.parsers:
             result = parser.parse(text, position, end, space)
             if result:
-                return result
+                return match(result.end, result.value, result.expected + expectedForErrors)
             else:
                 expectedForErrors += result.expected
         return failure(expectedForErrors)
@@ -1645,7 +1651,7 @@ class Bind(_GParser):
         return "Bind(%s, %s)" % (repr(self.parser), repr(self.function))
 
 
-class Return(_GParser):
+class Return(_GRParser):
     """
     A parser that always succeeds, consumes no input, and always returns a
     value specified when the Return instance is constructed.
@@ -1662,6 +1668,9 @@ class Return(_GParser):
     def do_graph(self, graph):
         graph.add_node(id(self), label="Return:\n%s" % repr(self.value))
         return []
+    
+    def create_railroad(self, options):
+        return _rr.Nothing()
     
     def __repr__(self):
         return "Return(%s)" % repr(self.value)
