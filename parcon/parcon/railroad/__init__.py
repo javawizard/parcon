@@ -58,7 +58,7 @@ class Then(Component):
         while modified:
             modified = False
             old_constructs = self.constructs
-            new_constructs = list(chain(*[c.constructs if isinstance(c, Then) else [c] for c in old_constructs]))
+            new_constructs = list(chain(*[c.constructs if isinstance(c, Then) else [c] for c in old_constructs if not isinstance(c, Nothing)]))
             if old_constructs != new_constructs:
                 modified = True
             self.constructs = new_constructs
