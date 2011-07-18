@@ -934,7 +934,7 @@ class AnyChar(_GRParser):
         return "AnyChar()"
 
 
-class Except(_GParser):
+class Except(_GRParser):
     """
     A parser that matches and returns whatever the specified parser matches
     and returns, as long as the specified avoid_parser does not also match at
@@ -942,10 +942,16 @@ class Except(_GParser):
     match any character as long as that character was not a * followed
     immediately by a / character. This would most likely be useful in, for
     example, a parser designed to parse C-style comments.
+    
+    When this parser is converted to a railroad diagram, it simply replaces
+    itself with the underlying parser it wraps. The resulting railroad diagram
+    does not, therefore, mention the avoid parser, so you should be careful
+    that this is really what you want to do.
     """
     def __init__(self, parser, avoid_parser):
         self.parser = parser
         self.avoid_parser = avoid_parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         # May want to parse space to make sure the two parsers are in sync
@@ -962,6 +968,9 @@ class Except(_GParser):
         graph.add_edge(id(self), id(self.parser), label="match")
         graph.add_edge(id(self), id(self.avoid_parser), label="avoid")
         return [self.parser, self.avoid_parser]
+    
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
     
     def __repr__(self):
         return "Except(%s, %s)" % (repr(self.parser), repr(self.avoid_parser))
