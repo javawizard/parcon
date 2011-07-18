@@ -1381,9 +1381,11 @@ class Keyword(_GRParser):
     (according to the current whitespace parser) if a terminator parser is not
     specified.
     """
-    def __init__(self, parser, terminator=None):
+    def __init__(self, parser, terminator=None, exact_terminator=True, or_end=True):
         self.parser = promote(parser)
         self.terminator = promote(terminator) if terminator is not None else None
+        self.exact_terminator = exact_terminator
+        self.or_end = or_end
         self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
@@ -1394,9 +1396,15 @@ class Keyword(_GRParser):
         result = self.parser.parse(text, position, end, space)
         if not result:
             return failure(result.expected)
-        terminatorResult = terminator.parse(text, result.end, end, space)
-        if not terminatorResult:
-            return failure(terminatorResult.expected)
+        if self.exact_terminator:
+            t_space = Invalid()
+        else:
+            t_space = space
+        if self.or_end:
+            terminator = terminator | End()
+        terminator_result = terminator.parse(text, result.end, end, t_space)
+        if not terminator_result:
+            return failure(terminator_result.expected)
         return result
     
     def do_graph(self, graph):
