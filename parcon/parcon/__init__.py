@@ -1380,6 +1380,18 @@ class Keyword(_GRParser):
     immediately by the specified terminator parser, or by whitespace
     (according to the current whitespace parser) if a terminator parser is not
     specified.
+    
+    If exact_terminator is True, the terminator is matched with Invalid() as
+    its whitespace parser. This prevents the whitespace parser from consuming
+    input that the terminator might have been expecting to see to indicate
+    proper termination of the keyword. If exact_terminator is False, the same
+    whitespace parser passed to Keyword will be passed into the terminator.
+    
+    If or_end is True, the terminator will be replaced with
+    (terminator | End()) just before attempting to parse it, which would allow
+    the keyword to be present at the end of the input without causing a parse
+    failure due to the keyword not being followed immediately by the
+    terminator.
     """
     def __init__(self, parser, terminator=None, exact_terminator=True, or_end=True):
         self.parser = promote(parser)
