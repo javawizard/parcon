@@ -1401,6 +1401,7 @@ class Keyword(_GRParser):
         self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
+        position = space.consume(text, position, end)
         if self.terminator:
             terminator = self.terminator
         else:
@@ -2267,8 +2268,8 @@ id_word = Word(alphanum_chars, init_chars=alpha_chars)(name="id word")
 title_word = Word(alphanum_chars, init_chars=upper_chars)(name="title word")
 
 digit = Digit()(name="digit")
-integer = (digit)["".join](name="integer")
-number = (-CharIn("+-") + +digit + -(SignificantLiteral(".") + +digit)
+integer = Exact(+digit)["".join](name="integer")
+number = Exact(-CharIn("+-") + +digit + -(SignificantLiteral(".") + +digit)
             )[flatten]["".join](name="number")
 rational = number
 
