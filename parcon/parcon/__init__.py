@@ -2122,9 +2122,13 @@ class End(_GParser):
     some whitespace at the end of the input. (If you don't want it to consume
     any whitespace, you can use Exact(End()).)
     
-    This parser's result is always None, and it doesn't consume any input (even
-    if there was whitespace that it parsed over while searching for the end of
-    input).
+    This parser's result is always None. End(True) will consume any whitespace
+    that it matches while searching for the end, which can improve performance
+    under certain circumstances by avoiding having to parse out whitespace a
+    second time. End(False) will still skip over whitespace while searching
+    for the end, but it won't consume it, which may be desirable if the
+    whitespace in question is significant to the grammar. End() is the same as
+    End(True).
     
     Note that this parser succeeds at the end of the /logical/ input given to
     it; specifically, if you've restricted the region to parse with Length, End
@@ -2133,11 +2137,23 @@ class End(_GParser):
     removing whitespace, the resulting position is equal to the end parameter
     passed to the parse function, then this parser matches. Otherwise, it fails.
     """
+    def __init__(self, consume=True):
+        """
+        Creates a new End parser. consume is described in the class docstring.
+        """
+        self.consume = consume
+    
     def parse(self, text, position, end, space):
         new_position = space.consume(text, position, end)
         if new_position == end:
-            return match(position, None, [(position, EUnsatisfiable())])
+            if self.consume:
+                result_pos = new_position
+            else:
+                result_pos = position
+            return match(result_pos, None, [(result_pos, EUnsatisfiable())])
         else:
+            # Should we use new_position here? I need to experiment around
+            # more with error messages and see.
             return failure([(position, EUnsatisfiable())])
     
     def do_graph(self, graph):
