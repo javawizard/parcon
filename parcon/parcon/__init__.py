@@ -1145,8 +1145,16 @@ class First(_GRParser):
     """
     A parser that tries all of its specified parsers in order. As soon as one
     matches, its result is returned. If none of them match, this parser fails.
+    
+    The parsers can be specified either as arguments (i.e. First(parser1,
+    parser2, parser3) or as a single list or tuple (i.e. First([parser1,
+    parser2, parser3]).
     """
     def __init__(self, *parsers):
+        if len(parsers) == 1 and isinstance(parsers[0], (list, tuple)):
+            # Allow passing in a single list of parsers instead of each parser
+            # as an argument
+            parsers = parsers[0]
         self.parsers = [promote(p) for p in parsers]
         self.railroad_children = self.parsers
     
@@ -1178,8 +1186,22 @@ class Longest(_GRParser):
     A parser that tries all of its specified parsers. The longest one that
     succeeds is chosen, and its result is returned. If none of the parsers
     succeed, Longest fails.
+    
+    The parsers can be specified either as arguments (i.e. First(parser1,
+    parser2, parser3) or as a single list or tuple (i.e. First([parser1,
+    parser2, parser3]).
+    
+    Longest is typically more expensive than First since it has to try each
+    parser to see which one consumes the most input whereas First stops trying
+    parsers once one succeeds. Because of this, it's usually better to use
+    First if the parsers to check can be reordered so that those consuming the
+    most input are at the beginning of the list.
     """
     def __init__(self, *parsers):
+        if len(parsers) == 1 and isinstance(parsers[0], (list, tuple)):
+            # Allow passing in a single list of parsers instead of each parser
+            # as an argument
+            parsers = parsers[0]
         self.parsers = [promote(p) for p in parsers]
         self.railroad_children = self.parsers
     
