@@ -2234,6 +2234,27 @@ class Description(_GRParser):
 Desc = Description
 
 
+def separated(item_parser, separator_parser):
+    """
+    Creates and returns a parser that will parse one or more items parsed by
+    item_parser, separated by separator_parser. The result of the parser is a
+    list of the items produced by item_parser.
+    
+    Both item_parser and separator_parser will be automatically promote()d, so
+    a string such as ",", for example, could be used as separator_parser
+    without having to wrap it in a Literal first.
+    """
+    item_parser, separator_parser = promote(item_parser), promote(separator_parser)
+    # The translating of item_parser's result to be placed in a tuple is to
+    # prevent the + concatenating it with the ()[...] from filtering it out if
+    # the item_parser results in None. Ideally, there should be some way to
+    # create a Then while telling it not to filter out None instances. 
+    return (item_parser[lambda a: (a,)] + (~separator_parser + item_parser)[...])[lambda (a, rest): [a] + rest]
+
+
+delimited = separated
+
+
 def flatten(value):
     """
     A function that recursively flattens the specified value. Tuples and lists
