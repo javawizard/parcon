@@ -1943,8 +1943,8 @@ class Regex(_RParser):
     you're one of the people that want this), I'll add a parameter that can be
     passed to Regex to switch this back to the usual behavior of using None.
     """
-    def __init__(self, regex, groups_only=None):
-        self.regex = re.compile(regex)
+    def __init__(self, regex, flags=0, groups_only=None):
+        self.regex = re.compile(regex, flags=flags)
         self.groups_only = groups_only
     
     def parse(self, text, position, end, space):
