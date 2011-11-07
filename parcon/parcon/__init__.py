@@ -1311,6 +1311,7 @@ class Exact(_GRParser):
         graph.add_edge(id(self), id(self.parser), label="parser")
         if not isinstance(self.space_parser, Invalid):
             graph.add_edge(id(self), id(self.space_parser), label="space")
+        return [self.parser]
     
     def create_railroad(self, options):
         return _rr.create_railroad(self.parser, options)
