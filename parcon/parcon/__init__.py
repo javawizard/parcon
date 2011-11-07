@@ -1738,7 +1738,7 @@ class Chars(_GParser):
         return []
 
 
-class Word(Parser):
+class Word(_GParser):
     """
     A parser that parses a word consisting of a certain set of allowed
     characters. A minimum and maximum word length can also be specified, as can
@@ -1791,6 +1791,14 @@ class Word(Parser):
         return match(new_position, result.group(0),
                 expected)
     
+    def do_graph(self, graph):
+        label = 'Word:\n%s len: %s-%s' % (repr(self.chars),
+                                          self.min, self.max or '')
+        if self.init_chars:
+            label += '\nstarting with %s' % repr(self.init_chars)
+        graph.add_node(id(self), label=label)
+        return []
+
     def __repr__(self):
         return "Word(%s, %s, %s, %s)" % (repr(self.chars), repr(self.init_chars),
                                          repr(self.min), repr(self.max))
