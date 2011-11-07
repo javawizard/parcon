@@ -1311,6 +1311,7 @@ class Exact(_GRParser):
         graph.add_edge(id(self), id(self.parser), label="parser")
         if not isinstance(self.space_parser, Invalid):
             graph.add_edge(id(self), id(self.space_parser), label="space")
+        return [self.parser]
     
     def create_railroad(self, options):
         return _rr.create_railroad(self.parser, options)
@@ -1737,7 +1738,7 @@ class Chars(_GParser):
         return []
 
 
-class Word(Parser):
+class Word(_GParser):
     """
     A parser that parses a word consisting of a certain set of allowed
     characters. A minimum and maximum word length can also be specified, as can
@@ -1790,6 +1791,14 @@ class Word(Parser):
         return match(new_position, result.group(0),
                 expected)
     
+    def do_graph(self, graph):
+        label = 'Word:\n%s len: %s-%s' % (repr(self.chars),
+                                          self.min, self.max or '')
+        if self.init_chars:
+            label += '\nstarting with %s' % repr(self.init_chars)
+        graph.add_node(id(self), label=label)
+        return []
+
     def __repr__(self):
         return "Word(%s, %s, %s, %s)" % (repr(self.chars), repr(self.init_chars),
                                          repr(self.min), repr(self.max))
@@ -1943,8 +1952,8 @@ class Regex(_RParser):
     you're one of the people that want this), I'll add a parameter that can be
     passed to Regex to switch this back to the usual behavior of using None.
     """
-    def __init__(self, regex, groups_only=None):
-        self.regex = re.compile(regex)
+    def __init__(self, regex, flags=0, groups_only=None):
+        self.regex = re.compile(regex, flags=flags)
         self.groups_only = groups_only
     
     def parse(self, text, position, end, space):
