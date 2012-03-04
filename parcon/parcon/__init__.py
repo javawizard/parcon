@@ -2081,7 +2081,7 @@ class Limit(Parser):
         return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
 
 
-class Tag(_GParser):
+class Tag(_GRParser):
     """
     A parser that "tags", so to speak, the value returned from its underlying
     parser. Specifically, you construct a Tag instance by specifying a tag and
@@ -2134,6 +2134,9 @@ class Tag(_GParser):
         graph.add_node(id(self), label="Tag:\n%s" % repr(self.tag))
         graph.add_edge(id(self), id(self.parser))
         return [self.parser]
+    
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
     
     def __repr__(self):
         return "Tag(%s, %s)" % (repr(self.tag), repr(self.parser))
