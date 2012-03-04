@@ -141,7 +141,9 @@ Pair = collections.namedtuple("Pair", ("key", "value"))
 
 
 class ParseException(Exception):
-    pass
+    def __init__(self, message, expectations=None):
+        Exception.__init__(self, message)
+        self.expectations = expectations
 
 
 class Expectation(object):
@@ -616,7 +618,7 @@ class Parser(object):
             # and if it is, we return the value.
             if whitespace.consume(string, result.end, len(string)) == len(string):
                 return result.value
-        raise ParseException("Parse failure: " + format_failure(result.expected))
+        raise ParseException("Parse failure: " + format_failure(result.expected), result.expected)
     
     def consume(self, text, position, end):
         result = self.parse(text, position, end, Invalid())
