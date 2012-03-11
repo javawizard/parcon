@@ -453,8 +453,17 @@ def format_expectations(position, expectations):
     
     Position is the position to use for n. Expectations is the list of strings
     to use for x, y, and z.
+    
+    Note that if there is only one expectation, the message will instead look
+    like:
+    
+    At position n: expected x
     """
-    return "At position %s: expected one of %s" % (position, ", ".join(expectations))
+    if len(expectations) == 1:
+        multi_message = ""
+    else:
+        multi_message = "one of "
+    return "At position %s: expected %s%s" % (position, multi_message, ", ".join(expectations))
 
 
 def format_failure(expected):
