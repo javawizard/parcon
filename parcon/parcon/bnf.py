@@ -35,13 +35,13 @@ String = namedtuple("String", ["value"])
 whitespace = p.Regex(r"[ \t]+")
 
 equals = p.Literal("::=")
-ref = (p.Literal("<") + (+p.CharNotIn(">"))["".join](desc="Any char except >") + ">")(name="non-terminal")
+ref = (p.Literal("<") + (+p.CharNotIn(">"))["".join](desc="Any char except >") + ">")(name="name")
 production_start = ref + equals
-string = p.Exact('"' + p.CharNotIn('"')[...] + '"')["".join][String]
+string = p.Exact('"' + p.CharNotIn('"')[...](desc='Any char except "') + '"')["".join][String]
 component = (ref & p.Not(p.Present(ref + equals)))[Reference] | string
-alternative = (+component)[Alternative]
-production = (production_start + p.InfixExpr(alternative[lambda a: [a]], [("|", lambda a, b: a+b)]))[lambda (n, a): Production(n, a)]
-productions = +production
+alternative = (+component)[Alternative](name="alternative")
+production = (production_start + p.InfixExpr(alternative[lambda a: [a]], [("|", lambda a, b: a+b)]))[lambda (n, a): Production(n, a)](name="production")
+productions = (+production)(name="bnf")
 
 def bnf_to_parcon(productions):
     result = {}
@@ -59,7 +59,7 @@ def bnf_to_parcon(productions):
                 else:
                     raise TypeError(type(component))
             alternative_parsers.append(reduce(p.Then, component_parsers))
-        result[name] << p.First(alternative_parsers)
+        result[name] << p.First(alternative_parsers)[name](name=name)
     # Unwrap all of the forwards to make things somewhat more clear
     for name in result:
         result[name] = result[name].parser

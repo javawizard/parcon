@@ -1858,7 +1858,7 @@ class Preserve(_GParser):
         return "Present(%s)" % repr(self.parser)
 
 
-class And(_GParser):
+class And(_GRParser):
     """
     A parser that matches whatever its specified parser matches as long as its
     specified check_parser also matches at the same location. This could be
@@ -1888,6 +1888,9 @@ class And(_GParser):
         graph.add_edge(id(self), id(self.check_parser), label="check")
         graph.add_edge(id(self), id(self.parser), label="result")
         return [self.parser, self.check_parser]
+    
+    def create_railroad(self, options):
+        return _rr.create_railroad(self.parser, options)
     
     def __repr__(self):
         return "And(%s, %s)" % (repr(self.parser), repr(self.check_parser))
