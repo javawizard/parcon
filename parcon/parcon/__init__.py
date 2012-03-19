@@ -2137,6 +2137,7 @@ class Tag(_GRParser):
     def __init__(self, tag, parser):
         self.tag = tag
         self.parser = parser
+        self.railroad_children = [parser]
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
