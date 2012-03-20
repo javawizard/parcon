@@ -1814,7 +1814,7 @@ class Present(_GParser):
     probably want to use Preserve instead.
     """
     def __init__(self, parser):
-        self.parser = parser
+        self.parser = promote(parser)
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
@@ -1840,7 +1840,7 @@ class Preserve(_GParser):
     parser returned, even though it doesn't consume any input.
     """
     def __init__(self, parser):
-        self.parser = parser
+        self.parser = promote(parser)
     
     def parse(self, text, position, end, space):
         result = self.parser.parse(text, position, end, space)
