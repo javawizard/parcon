@@ -576,6 +576,10 @@ def op_and(first, second):
     return NotImplemented
 
 def op_call(parser, *args, **kwargs):
+    if(args):
+        raise Exception("some_parser(...) cannot contain any positional arguments")
+    if(len(kwargs) != 1):
+        raise Exception("some_parser(...) must specify exactly one keyword argument, not " + len(kwargs))
     if kwargs.get("name") is not None:
         return Name(kwargs["name"], parser)
     if kwargs.get("desc") is not None:
