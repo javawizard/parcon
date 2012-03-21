@@ -477,7 +477,7 @@ def draw_to_png(diagram, options, filename, forward=True):
     some point.
     """
     if not isinstance(diagram, dict):
-        diagram = {"": dict}
+        diagram = {"": diagram}
     options = create_options(options)
     before_title = options.raildraw_title_before
     after_title = options.raildraw_title_after
