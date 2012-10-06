@@ -598,7 +598,7 @@ class Parser(object):
     
     The method you'll typically use on Parser objects is parse_string.
     """
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         raise Exception("Parse not implemented for " + str(type(self)))
     
     def parse_string(self, string, all=True, whitespace=None):
@@ -619,7 +619,7 @@ class Parser(object):
         """
         if whitespace is None:
             whitespace = Whitespace()
-        result = self.parse(string, 0, len(string), whitespace)
+        result = self.parse(string, 0, len(string), whitespace, all)
         if result:
             if not all: # We got a result back and we're not trying to match
                 # everything, so regardless of what the result was, we should
@@ -634,10 +634,10 @@ class Parser(object):
         raise ParseException("Parse failure: " + format_failure(result.expected), result.expected)
     
     def consume(self, text, position, end):
-        result = self.parse(text, position, end, Invalid())
+        result = self.parse(text, position, end, Invalid(), all)
         while result:
             position = result.end
-            result = self.parse(text, position, end, Invalid())
+            result = self.parse(text, position, end, Invalid(), all)
         return position
         
     # All of the operators available to parsers
@@ -700,7 +700,7 @@ class Invalid(_GParser):
     """
     A parser that never matches any input and always fails.
     """
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         # This MUST NOT attempt to parse out any whitespace before failing, for
         # two reasons: 1, it's pointless anyway, and 2, it will cause
         # infinite recursion in parse_whitespace, which is called by nearly
@@ -727,7 +727,7 @@ class Literal(_GRParser):
     def __init__(self, text):
         self.text = text
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end] == self.text:
@@ -753,7 +753,7 @@ class SignificantLiteral(Literal):
     SignificantLiteral returns the literal string passed into it instead of
     None.
     """
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end] == self.text:
@@ -782,7 +782,7 @@ class AnyCase(_GRParser):
     def __init__(self, text):
         self.text = text.lower()
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         expected_end = position + len(self.text)
         if expected_end <= end and text[position:expected_end].lower() == self.text:
@@ -810,7 +810,7 @@ class CharIn(_GRParser):
     def __init__(self, chars):
         self.chars = chars
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         expected_end = position + 1
         if position < end and text[position:expected_end] in self.chars:
@@ -837,7 +837,7 @@ class CharNotIn(_GParser):
     def __init__(self, chars):
         self.chars = chars
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         expected_end = position + 1
         if position < end and text[position:expected_end] not in self.chars:
@@ -936,7 +936,7 @@ class AnyChar(_GRParser):
     A parser that matches any single character. It returns the character that
     it matched.
     """
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         if position < end: # At least one char left
             return match(position + 1, text[position], [(position + 1, EUnsatisfiable())])
@@ -973,12 +973,12 @@ class Except(_GRParser):
         self.avoid_parser = avoid_parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         # May want to parse space to make sure the two parsers are in sync
-        result = self.parser.parse(text, position, end, space)
+        result = self.parser.parse(text, position, end, space, all)
         if not result:
             return failure(result.expected)
-        avoid_result = self.avoid_parser.parse(text, position, end, space)
+        avoid_result = self.avoid_parser.parse(text, position, end, space, all)
         if avoid_result:
             return failure([(position, EStringLiteral("(TBD: except)"))])
         return result
@@ -1007,13 +1007,13 @@ class ZeroOrMore(_GRParser):
         self.parser = parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         result = []
-        parserResult = self.parser.parse(text, position, end, space)
+        parserResult = self.parser.parse(text, position, end, space, all)
         while parserResult:
             result.append(parserResult.value)
             position = parserResult.end
-            parserResult = self.parser.parse(text, position, end, space)
+            parserResult = self.parser.parse(text, position, end, space, all)
         return match(position, result, parserResult.expected)
     
     def do_graph(self, graph):
@@ -1037,13 +1037,13 @@ class OneOrMore(_GRParser):
         self.parser = parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         result = []
-        parserResult = self.parser.parse(text, position, end, space)
+        parserResult = self.parser.parse(text, position, end, space, all)
         while parserResult:
             result.append(parserResult.value)
             position = parserResult.end
-            parserResult = self.parser.parse(text, position, end, space)
+            parserResult = self.parser.parse(text, position, end, space, all)
         if len(result) == 0:
             return failure(parserResult.expected)
         return match(position, result, parserResult.expected)
@@ -1084,12 +1084,12 @@ class Then(_GRParser):
         self.second = promote(second)
         self.railroad_children = [self.first, self.second]
     
-    def parse(self, text, position, end, space):
-        firstResult = self.first.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        firstResult = self.first.parse(text, position, end, space, all)
         if not firstResult:
             return failure(firstResult.expected)
         position = firstResult.end
-        secondResult = self.second.parse(text, position, end, space)
+        secondResult = self.second.parse(text, position, end, space, all)
         if not secondResult:
             return failure(firstResult.expected + secondResult.expected)
         position = secondResult.end
@@ -1137,8 +1137,8 @@ class Discard(_GRParser):
         self.parser = parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return match(result.end, None, result.expected)
         else:
@@ -1173,12 +1173,17 @@ class First(_GRParser):
         self.parsers = [promote(p) for p in parsers]
         self.railroad_children = self.parsers
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         expectedForErrors = []
         for parser in self.parsers:
-            result = parser.parse(text, position, end, space)
+            result = parser.parse(text, position, end, space, all)
             if result:
-                return match(result.end, result.value, result.expected + expectedForErrors)
+                if not all:
+                    return match(result.end, result.value, result.expected + expectedForErrors)
+                elif space.consume(text[position:], result.end, len(text)) == len(text):
+                    return match(result.end, result.value, result.expected + expectedForErrors)
+                else:
+                    expectedForErrors += result.expected
             else:
                 expectedForErrors += result.expected
         return failure(expectedForErrors)
@@ -1220,11 +1225,11 @@ class Longest(_GRParser):
         self.parsers = [promote(p) for p in parsers]
         self.railroad_children = self.parsers
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         expectedForErrors = []
         successful = []
         for parser in self.parsers:
-            result = parser.parse(text, position, end, space)
+            result = parser.parse(text, position, end, space, all)
             if result:
                 successful.append(result)
             else:
@@ -1269,8 +1274,8 @@ class Translate(_GRParser):
         self.function = function
         self.railroad_children = [self.parser]
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if not result:
             return failure(result.expected)
         return match(result.end, self.function(result.value), result.expected)
@@ -1317,9 +1322,9 @@ class Exact(_GRParser):
         self.space_parser = space_parser
         self.railroad_children = [self.parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
-        return self.parser.parse(text, position, end, self.space_parser)
+        return self.parser.parse(text, position, end, self.space_parser, all)
     
     def do_graph(self, graph):
         graph.add_node(id(self), label="Exact")
@@ -1348,8 +1353,8 @@ class Optional(_GRParser):
         self.default = default
         self.railroad_children = [self.parser]
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return result
         else:
@@ -1383,18 +1388,18 @@ class Repeat(_GParser):
         self.min = min
         self.max = max
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         if self.max == 0: # This does actually happen some times;
             # specifically, it came up in a parser that James Stoker was
             # writing to parse CIDRs in BGP packets
             return match(position, [], (position, EUnsatisfiable()))
         if self.min == 1 and self.max == 1: # Optimization to short-circuit
             # into the underlying parser if we're parsing exactly one of it
-            return self.parser.parse(text, position, end, space)
+            return self.parser.parse(text, position, end, space, all)
         result = []
         parse_result = None
         for i in (xrange(self.max) if self.max is not None else itertools.count(0)):
-            parse_result = self.parser.parse(text, position, end, space)
+            parse_result = self.parser.parse(text, position, end, space, all)
             if not parse_result:
                 break
             position = parse_result.end
@@ -1446,13 +1451,13 @@ class Keyword(_GRParser):
         self.or_end = or_end
         self.railroad_children = [self.parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         if self.terminator:
             terminator = self.terminator
         else:
             terminator = space
-        result = self.parser.parse(text, position, end, space)
+        result = self.parser.parse(text, position, end, space, all)
         if not result:
             return failure(result.expected)
         if self.exact_terminator:
@@ -1461,7 +1466,7 @@ class Keyword(_GRParser):
             t_space = space
         if self.or_end:
             terminator = terminator | End()
-        terminator_result = terminator.parse(text, result.end, end, t_space)
+        terminator_result = terminator.parse(text, result.end, end, t_space, all)
         if not terminator_result:
             return failure(terminator_result.expected)
         return result
@@ -1521,12 +1526,12 @@ class Forward(_GRParser):
     def railroad_children(self):
         return [self.parser]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         if not self.parser:
             raise Exception("Forward.parse was called before the specified "
                             "Forward instance's set function or << operator "
                             "was used to specify a parser.")
-        return self.parser.parse(text, position, end, space)
+        return self.parser.parse(text, position, end, space, all)
     
     def set(self, parser):
         """
@@ -1590,9 +1595,9 @@ class InfixExpr(_GRParser):
             raise Exception("InfixExpr must be created with at least one operator")
         self.operators = [(promote(op), function) for op, function in operators]
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         # Parse the first component
-        component_result = self.component.parse(text, position, end, space)
+        component_result = self.component.parse(text, position, end, space, all)
         if not component_result:
             return failure(component_result.expected)
         # Set up initial values from the first component
@@ -1606,7 +1611,7 @@ class InfixExpr(_GRParser):
             ops_expected += component_result.expected
             # Try each operator's op parser in sequence
             for op_parser, op_function in self.operators:
-                op_result = op_parser.parse(text, position, end, space)
+                op_result = op_parser.parse(text, position, end, space, all)
                 if op_result:
                     # This operator matched, so we break out of our loop
                     found_op = True
@@ -1619,7 +1624,7 @@ class InfixExpr(_GRParser):
                 return match(position, value, ops_expected)
             # We have an operator. Now we set the new position and try to parse
             # a component following it.
-            component_result = self.component.parse(text, op_result.end, end, space)
+            component_result = self.component.parse(text, op_result.end, end, space, all)
             if not component_result:
                 # Component didn't match, so we return the current value, along
                 # with the component's expectation and the expectations of the
@@ -1672,12 +1677,12 @@ class Bind(_GParser):
         self.parser = parser
         self.function = function
     
-    def parse(self, text, position, end, whitespace):
-        first_result = self.parser.parse(text, position, end, whitespace)
+    def parse(self, text, position, end, whitespace, all):
+        first_result = self.parser.parse(text, position, end, whitespace, all)
         if not first_result:
             return failure(first_result.expected)
         second_parser = self.function(first_result.value)
-        second_result = second_parser.parse(text, first_result.end, end, whitespace)
+        second_result = second_parser.parse(text, first_result.end, end, whitespace, all)
         if not second_result:
             return failure(second_result.expected + first_result.expected)
         return match(second_result.end, second_result.value, second_result.expected)
@@ -1702,7 +1707,7 @@ class Return(_GRParser):
     def __init__(self, value):
         self.value = value
     
-    def parse(self, text, position, end, whitespace):
+    def parse(self, text, position, end, whitespace, all):
         return match(position, self.value, [(position, EUnsatisfiable())])
     
     def do_graph(self, graph):
@@ -1742,7 +1747,7 @@ class Chars(_GParser):
     def __init__(self, number):
         self.number = number
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         if position + self.number > end:
             return failure([(end, EAnyChar())])
@@ -1790,7 +1795,7 @@ class Word(Parser):
         self.min = min
         self.max = max
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         result = self.pattern.match(text, position, end)
         # We'll always have a result here, we just need to check and make sure
@@ -1823,8 +1828,8 @@ class Present(_GParser):
     def __init__(self, parser):
         self.parser = promote(parser)
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return match(position, None, [(position, EUnsatisfiable())])
         else:
@@ -1849,8 +1854,8 @@ class Preserve(_GParser):
     def __init__(self, parser):
         self.parser = promote(parser)
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return match(position, result.value, [(position, EUnsatisfiable())])
         else:
@@ -1880,12 +1885,12 @@ class And(_GRParser):
         self.parser = parser
         self.check_parser = check_parser
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         # May want to parse space to make sure the two parsers are in sync
-        result = self.parser.parse(text, position, end, space)
+        result = self.parser.parse(text, position, end, space, all)
         if not result:
             return failure(result.expected)
-        check_result = self.check_parser.parse(text, position, end, space)
+        check_result = self.check_parser.parse(text, position, end, space, all)
         if not check_result:
             return failure(check_result.expected)
         return result
@@ -1912,8 +1917,8 @@ class Not(_GParser):
     def __init__(self, parser):
         self.parser = parser
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return failure([(position, EStringLiteral("(TBD: Not)"))])
         else:
@@ -1968,7 +1973,7 @@ class Regex(_RParser):
         self.regex = re.compile(regex)
         self.groups_only = groups_only
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         position = space.consume(text, position, end)
         regex_match = self.regex.match(text, position, end)
         if not regex_match:
@@ -2041,10 +2046,10 @@ class Expected(Parser):
         self.expected_message = expected_message
         self.remove_whitespace = remove_whitespace
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         if self.remove_whitespace:
             position = space.consume(text, position, end)
-        result = self.parser.parse(text, position, end, space)
+        result = self.parser.parse(text, position, end, space, all)
         if not result:
             return failure([(position, ECustomExpectation(self.expected_message))])
         return result
@@ -2083,9 +2088,9 @@ class Limit(Parser):
         self.length = length
         self.parser = parser
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         if isinstance(self.length, Parser):
-            result = self.length.parse(text, position, end, space)
+            result = self.length.parse(text, position, end, space, all)
             if not result:
                 return failure(result.expected)
             position = result.end
@@ -2094,7 +2099,7 @@ class Limit(Parser):
             limit = position + self.length
         if limit > end:
             limit = end
-        return self.parser.parse(text, position, limit, space)
+        return self.parser.parse(text, position, limit, space, all)
     
     def __repr__(self):
         return "Limit(%s, %s)" % (repr(self.length), repr(self.parser))
@@ -2143,8 +2148,8 @@ class Tag(_GRParser):
         self.parser = parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
-        result = self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        result = self.parser.parse(text, position, end, space, all)
         if result:
             return match(result.end, Pair(self.tag, result.value), result.expected)
         else:
@@ -2190,7 +2195,7 @@ class End(_GParser):
         """
         self.consume = consume
     
-    def parse(self, text, position, end, space):
+    def parse(self, text, position, end, space, all):
         new_position = space.consume(text, position, end)
         if new_position == end:
             if self.consume:
@@ -2219,8 +2224,8 @@ class Name(_GRParser):
         self.railroad_production_delegate = parser
         self.railroad_children = [parser]
     
-    def parse(self, text, position, end, space):
-        return self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        return self.parser.parse(text, position, end, space, all)
     
     def do_graph(self, graph):
         graph.add_node(id(self), label="Name:\n" + repr(self.name))
@@ -2241,8 +2246,8 @@ class Description(_GRParser):
         # This should /not/ have any railroad children to prevent a Description
         # object from being descended into when constructing railroad diagrams
     
-    def parse(self, text, position, end, space):
-        return self.parser.parse(text, position, end, space)
+    def parse(self, text, position, end, space, all):
+        return self.parser.parse(text, position, end, space, all)
     
     def do_graph(self, graph):
         graph.add_node(id(self), label="Description:\n" + repr(self.description))
