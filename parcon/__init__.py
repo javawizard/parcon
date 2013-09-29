@@ -94,7 +94,7 @@ A syntax diagram can also be generated for the expression parser with:
 expr.draw_productions_to_png({}, "expr-syntax.png")
 
 Another example use of Parcon, this one being a JSON parser (essentially
-a reimplementation of Python's json.dumps, without all of the fancy
+a reimplementation of Python's json.loads, without all of the fancy
 arguments that it supports, and currently without support for backslash
 escapes in JSON string literals):
 
