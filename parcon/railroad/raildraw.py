@@ -457,7 +457,7 @@ def draw_text(context, x, y, font, text):
     return layout.get_pixel_size()
 
 
-def draw_to_png(diagram, options, filename, forward=True):
+def draw_to_surface(surface_cb, diagram, options, filename, forward=True):
     """
     Draws the specified railroad diagram, which should be an instance of
     parcon.railroad.Component or one of its subclasses, or a dictionary, into
@@ -489,7 +489,7 @@ def draw_to_png(diagram, options, filename, forward=True):
         w, h, l = size_of(empty_context, d, options)
         width, height = max(width, w), h + height
     height += len(diagram) * (before_title + after_title)
-    image = cairo.ImageSurface(cairo.FORMAT_ARGB32, int(width + 16), int(height + 16))
+    image = surface_cb(int(width + 16), int(height + 16))
     context = cairo.Context(image)
     x = 8
     y = 8
@@ -501,8 +501,29 @@ def draw_to_png(diagram, options, filename, forward=True):
         # having to compute it twice
         y += size_of(context, d, options)[1]
         y += before_title
-    image.write_to_png(filename)
 
+def draw_to_png(diagram, options, filename, forward):
+    image_ref = [0]
+    def get_surface_cb(image_ref):
+        def get_surface(width,height):
+            image_ref[0] = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+            return image_ref[0]
+        return get_surface
+    draw_to_surface(get_surface_cb(image_ref), diagram, options, filename, forward)
+    image_ref[0].write_to_png(filename)
+
+def draw_to_svg(diagram, options, filename, forward):
+    def get_surface(width, height):
+        return cairo.SVGSurface(filename, width, height)
+    draw_to_surface(get_surface, diagram, options, filename, forward)
+
+def draw_to_image(img_type, diagram, options, filename, forward=True):
+    if img_type == 'png':
+        draw_to_png(diagram, options, filename, forward)
+    elif img_type == 'svg':
+        draw_to_svg(diagram, options, filename, forward)
+    else:
+        raise Exception("No such image type")
 
 def draw_to_context(context, diagram, options, filename, forward=True, x=8, y=8):
     """
