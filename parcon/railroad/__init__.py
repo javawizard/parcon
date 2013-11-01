@@ -185,6 +185,12 @@ class Railroadable(object):
         del _raildraw
     
     def draw_productions_to_png(self, options, filename, tail=[]):
+        self.draw_productions_to_image('png', options, filename, tail)
+
+    def draw_productions_to_svg(self, options, filename, tail=[]):
+        self.draw_productions_to_image('svg', options, filename, tail)
+
+    def draw_productions_to_image(self, img_type, options, filename, tail):
         productions = self.get_productions()
         if len(productions) == 0:
             raise Exception("No named productions to generate")
@@ -195,7 +201,7 @@ class Railroadable(object):
                 del productions[name]
                 productions[name] = value
         from parcon.railroad import raildraw as _raildraw
-        _raildraw.draw_to_png(ordered_dict.OrderedDict([(k,
+        _raildraw.draw_to_image(img_type, ordered_dict.OrderedDict([(k,
             Then(Bullet(), v.create_railroad(options), Bullet()))
             for k, v in productions.items()]), options, filename)
         del _raildraw
