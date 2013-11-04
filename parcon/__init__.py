@@ -44,22 +44,22 @@ The Parser class, and hence all of its subclasses, overload a few operators
 that can be used to make writing parsers easier. Here's what each operator
 ends up translating to:
 
-x + y is the same as Then(x, y).
-x | y is the same as First(x, y).
-x - y is the same as Except(x, y).
-x & y is the same as And(x, y).
--x is the same as Optional(x).
-+x is the same as OneOrMore(x).
-~x is the same as Discard(x).
-x[min:max] is the same as Repeat(x, min, max).
-x[some_int] is the same as Repeat(x, some_int, some_int).
-x[some_string] is the same as Tag(some_string, x).
-x[...] (three literal dots) is the same as ZeroOrMore(x).
-x[function] is the same as Translate(x, function).
-x(name="test") is the same as Name("test", x).
-x(desc="test") or x(description="test") is the same as Desc("test", x)
-"x" op some_parser or some_parser op "x" is the same as Literal("x") op 
-       some_parser or some_parser op Literal("x"), respectively.
+ * x + y is the same as Then(x, y).
+ * x | y is the same as First(x, y).
+ * x - y is the same as Except(x, y).
+ * x & y is the same as And(x, y).
+ * -x is the same as Optional(x).
+ * +x is the same as OneOrMore(x).
+ * ~x is the same as Discard(x).
+ * x[min:max] is the same as Repeat(x, min, max).
+ * x[some_int] is the same as Repeat(x, some_int, some_int).
+ * x[some_string] is the same as Tag(some_string, x).
+ * x[...] (three literal dots) is the same as ZeroOrMore(x).
+ * x[function] is the same as Translate(x, function).
+ * x(name="test") is the same as Name("test", x).
+ * x(desc="test") or x(description="test") is the same as Desc("test", x)
+ * "x" op some_parser or some_parser op "x" is the same as Literal("x") op 
+   some_parser or some_parser op Literal("x"), respectively.
 
 A simple expression evaluator written using Parcon:
 
@@ -91,7 +91,7 @@ simple expression evaluator:
 
 A syntax diagram can also be generated for the expression parser with:
 
-expr.draw_productions_to_png({}, "expr-syntax.png")
+>>> expr.draw_productions_to_png({}, "expr-syntax.png")
 
 Another example use of Parcon, this one being a JSON parser (essentially
 a reimplementation of Python's json.loads, without all of the fancy
