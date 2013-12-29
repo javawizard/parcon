@@ -82,7 +82,8 @@ def create_options(map):
         raildraw_loop_spacing=8,
         raildraw_loop_radius=7,
         raildraw_loop_before=6,
-        raildraw_loop_after=6
+        raildraw_loop_after=6,
+        raildraw_scale=1.0
     )
 
 
@@ -489,8 +490,11 @@ def draw_to_surface(surface_cb, diagram, options, filename, forward=True):
         w, h, l = size_of(empty_context, d, options)
         width, height = max(width, w), h + height
     height += len(diagram) * (before_title + after_title)
-    image = surface_cb(int(width + 16), int(height + 16))
+    image = surface_cb(int((width + 16) * options.raildraw_scale),
+                       int((height + 16) * options.raildraw_scale))
     context = cairo.Context(image)
+    if options.raildraw_scale != 1:
+        context.scale(options.raildraw_scale, options.raildraw_scale)
     x = 8
     y = 8
     for name, d in diagram.items():
