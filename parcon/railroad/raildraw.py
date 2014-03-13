@@ -63,6 +63,7 @@ def create_options(map):
         raildraw_title_font=title_font,
         raildraw_title_before=45,
         raildraw_title_after=45,
+        raildraw_title_hide=False,
         raildraw_arrow_width=9,
         raildraw_arrow_height=7,
         raildraw_arrow_indent=0.25,
@@ -498,7 +499,8 @@ def draw_to_surface(surface_cb, diagram, options, filename, forward=True):
     x = 8
     y = 8
     for name, d in diagram.items():
-        draw_text(context, x, y, options.raildraw_title_font, name + ":")
+        if not options.raildraw_title_hide:
+            draw_text(context, x, y, options.raildraw_title_font, name + ":")
         y += after_title
         draw_to_context(context, d, options, filename, forward, x, y)
         # FIXME: store the size as computed 10 or 20 lines above to avoid
