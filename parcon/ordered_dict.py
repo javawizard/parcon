@@ -6,6 +6,7 @@
 # Backport of OrderedDict() class that runs on Python 2.4, 2.5, 2.6, 2.7 and pypy.
 # Passes Python2.7's test suite and incorporates all the latest updates.
 
+import six
 try:
     from thread import get_ident as _get_ident
 except ImportError:
@@ -86,7 +87,7 @@ class OrderedDict(dict):
     def clear(self):
         'od.clear() -> None.  Remove all items from od.'
         try:
-            for node in self.__map.itervalues():
+            for node in six.itervalues(self.__map):
                 del node[:]
             root = self.__root
             root[:] = [root, root, None]
