@@ -125,6 +125,8 @@ Then parser) and the identity element being Return(None).
 import itertools
 from operator import itemgetter
 import six
+# noinspection PyUnresolvedReferences
+from six.moves import range
 from parcon import static
 import re
 import collections
@@ -1395,7 +1397,7 @@ class Repeat(_GParser):
             return self.parser.parse(text, position, end, space)
         result = []
         parse_result = None
-        for i in (xrange(self.max) if self.max is not None else itertools.count(0)):
+        for i in (range(self.max) if self.max is not None else itertools.count(0)):
             parse_result = self.parser.parse(text, position, end, space)
             if not parse_result:
                 break
