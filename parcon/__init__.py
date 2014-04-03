@@ -1808,7 +1808,7 @@ class Word(Parser):
         new_position = result.end()
         if total_consumed < self.min:
             return failure((result.end(), EAnyCharIn(self.chars)))
-        if total_consumed < self.max:
+        if self.max is None or total_consumed < self.max:
             expected = (new_position, EAnyCharIn(self.chars))
         else:
             expected = (new_position, EUnsatisfiable())
