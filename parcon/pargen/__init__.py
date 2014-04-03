@@ -10,7 +10,7 @@ formatter (essentially a simplified reimplementation of Python's json.dumps):
 >>> number = Type(float, int, long, Decimal) & String()
 >>> boolean = Type(bool) & ((Is(True) & "true") | (Is(False) & "false"))
 >>> null = Is(None) & "null"
->>> string = Type(basestring) & '"' + String() + '"'
+>>> string = Type(str) & '"' + String() + '"'
 >>> json_list = Type(list, tuple) & ("[" + ForEach(json, ", ") + "]")
 >>> json_map =Type(dict) &  ("{" + ForEach(Head(json) + ": " + Tail(json), ", ") + "}")
 >>> json << (boolean | number | null | string | json_list | json_map)
@@ -34,6 +34,7 @@ things for extracting keys from maps.
 """
 
 from parcon import static
+import six
 
 sequence_type = static.Sequence()
 sequence_or_dict_type = static.Or(static.Sequence(), static.Type(dict))
@@ -100,7 +101,7 @@ def match(text, remainder):
 def promote(value):
     if isinstance(value, Formatter):
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         return Literal(value)
     return value
 

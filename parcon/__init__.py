@@ -124,6 +124,7 @@ Then parser) and the identity element being Return(None).
 
 import itertools
 from operator import itemgetter
+import six
 from parcon import static
 import re
 import collections
@@ -511,7 +512,7 @@ def promote(value):
     """
     if isinstance(value, Parser):
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         return Literal(value)
     return value
 
@@ -555,9 +556,9 @@ def op_getitem(parser, function):
         return Repeat(parser, function.start, function.stop)
     elif function == Ellipsis:
         return ZeroOrMore(parser)
-    elif isinstance(function, (int, long)):
+    elif isinstance(function, six.integer_types):
         return Repeat(parser, function, function)
-    elif isinstance(function, basestring):
+    elif isinstance(function, six.string_types):
         return Tag(function, parser)
     elif callable(function):
         return Translate(parser, function)
@@ -2130,10 +2131,9 @@ class Tag(_GRParser):
     >>> decimal_parser = ((+Digit())[concat]["integer"] + Optional("." + \
                              (+Digit())[concat], "")["decimal"])[dict]
     
-    Note that the short notation of parser[tag] only works if tag is a string
-    (or a unicode instance; anything that subclasses from basestring works).
-    No other datatypes will work; if you want to use those, you'll need to use
-    Tag itself instead of the short notation.
+    Note that the short notation of parser[tag] only works if tag is a unicode
+    or byte string. No other datatypes will work; if you want to use those,
+    you'll need to use Tag itself instead of the short notation.
     
     If you want to preserve all values with a particular tag instead of just
     one of them, you may want to use parser[list_dict] instead of parser[dict].
@@ -2321,7 +2321,7 @@ def concat(value, delimiter=""):
     then iterates over all of the items in the resulting list and concatenates
     all of them that are strings.
     """
-    return delimiter.join([s for s in flatten(value) if isinstance(s, basestring)])
+    return delimiter.join([s for s in flatten(value) if isinstance(s, six.string_types)])
 
 
 def list_dict(list_of_pairs):
