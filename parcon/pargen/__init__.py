@@ -25,6 +25,7 @@ class for pargen, analogous to parcon.Parser. It contains some module
 documentation that can probably help to get you started.
 """
 
+from __future__ import print_function
 """
 TODO: write something that can convert a number into its textual representation,
 so like the opposite of the number parser example, and then write something that
@@ -55,9 +56,9 @@ class Result(object):
     particular result succeeded:
     
     if some_result:
-        print "Result succeeded"
+        print("Result succeeded")
     else:
-        print "Result failed"
+        print("Result failed")
     """
     def __init__(self, text, remainder):
         self.text = text

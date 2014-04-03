@@ -24,7 +24,7 @@ If you're on Ubuntu, all of the above dependencies can be installed via
 apt-get; I'll get a list of the specific packages to install up here soon.
 """
 
-from __future__ import division
+from __future__ import division, print_function
 from operator import itemgetter
 from parcon import railroad as rr
 from parcon import options
@@ -34,10 +34,10 @@ try:
     import pango
     import pangocairo
 except ImportError:
-    print ("ERROR: parcon.railroad.raildraw requires Cairo, PyCairo, Pango,"
-           "and PyGTK (for the Pango bindings). Please install any of those "
-           "that you may be missing. An ImportError is about to be raised as "
-           "a result of one of those not being present.")
+    print("ERROR: parcon.railroad.raildraw requires Cairo, PyCairo, Pango,"
+          "and PyGTK (for the Pango bindings). Please install any of those "
+          "that you may be missing. An ImportError is about to be raised as "
+          "a result of one of those not being present.")
     raise
 
 

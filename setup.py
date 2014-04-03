@@ -47,13 +47,13 @@ Here's an example of a simple expression evaluator written using Parcon::
 
 This expression evaluator can be used thus::
 
-    print expr.parse_string("1+2") # prints 3
-    print expr.parse_string("1+2+3") # prints 6
-    print expr.parse_string("1+2+3+4") # prints 10
-    print expr.parse_string("3*4") # prints 12
-    print expr.parse_string("5+3*4") # prints 17
-    print expr.parse_string("(5+3)*4") # prints 32
-    print expr.parse_string("10/4") # prints 2.5
+    print(expr.parse_string("1+2")) # prints 3
+    print(expr.parse_string("1+2+3")) # prints 6
+    print(expr.parse_string("1+2+3+4")) # prints 10
+    print(expr.parse_string("3*4")) # prints 12
+    print(expr.parse_string("5+3*4")) # prints 17
+    print(expr.parse_string("(5+3)*4")) # prints 32
+    print(expr.parse_string("10/4")) # prints 2.5
 
 A syntax diagram can then be generated from it like this::
 

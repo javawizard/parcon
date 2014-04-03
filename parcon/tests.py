@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 from parcon.testframework import *
 import parcon
@@ -50,15 +51,15 @@ def run_tests():
     targets |= set(subclasses_in_module(static.StaticType, ("parcon.static",)))
     test.warn_missing_targets(targets)
     passed, failed = test.run_tests()
-    print "-" * 75
-    print "%s tests passed" % passed
-    print "%s tests failed" % failed
-    print "-" * 75
-    print
+    print("-" * 75)
+    print("%s tests passed" % passed)
+    print("%s tests failed" % failed)
+    print("-" * 75)
+    print()
     if failed == 0:
-        print "TESTING SUCCESSFUL"
+        print("TESTING SUCCESSFUL")
     else:
-        print "TESTING FAILED"
+        print("TESTING FAILED")
 
 
 if __name__ == "__main__":

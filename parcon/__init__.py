@@ -122,6 +122,7 @@ Then parser) and the identity element being Return(None).
 # Parcon is Copyright 2011 Alexander Boyd. Released under the
 # terms of the GNU Lesser General Public License.
 
+from __future__ import print_function
 import itertools
 from operator import itemgetter
 import six
@@ -328,15 +329,15 @@ class Result(object):
     >>> successful_result = match(0, "some random value", [])
     >>> failed_result = failure([(0, EUnsatisfiable())])
     >>> if successful_result:
-    ...     print "Yes"
+    ...     print("Yes")
     ... else:
-    ...     print "No"
+    ...     print("No")
     ...
     Yes
     >>> if failed_result:
-    ...     print "Yes"
+    ...     print("Yes")
     ... else:
-    ...     print "No"
+    ...     print("No")
     ...
     No
     """
