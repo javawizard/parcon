@@ -1,4 +1,5 @@
-
+# noinspection PyUnresolvedReferences
+from six.moves import reduce
 import parcon as p
 from collections import namedtuple
 
