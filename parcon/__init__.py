@@ -354,7 +354,9 @@ class Result(object):
     
     def __nonzero__(self):
         return self.end is not None
-    
+
+    __bool__ = __nonzero__
+
     def __str__(self):
         if self:
             return "<Result: %s ending at %s>" % (self.value, self.end)

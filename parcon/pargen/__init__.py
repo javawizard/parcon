@@ -66,7 +66,9 @@ class Result(object):
     
     def __nonzero__(self):
         return self.text is not None
-    
+
+    __bool__ = __nonzero__
+
     def __str__(self):
         if self:
             return "<Result: %s with remainder %s>" % (repr(self.text), self.remainder)
