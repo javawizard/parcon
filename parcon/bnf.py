@@ -40,7 +40,7 @@ production_start = ref + equals
 string = p.Exact('"' + p.CharNotIn('"')[...](desc='Any char except "') + '"')["".join][String]
 component = (ref & p.Not(p.Present(ref + equals)))[Reference] | string
 alternative = (+component)[Alternative](name="alternative")
-production = (production_start + p.InfixExpr(alternative[lambda a: [a]], [("|", lambda a, b: a+b)]))[lambda (n, a): Production(n, a)](name="production")
+production = (production_start + p.InfixExpr(alternative[lambda a: [a]], [("|", lambda a, b: a+b)]))[lambda x: Production(*x)](name="production")
 productions = (+production)(name="bnf")
 
 def bnf_to_parcon(productions):

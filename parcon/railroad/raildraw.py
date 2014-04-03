@@ -25,6 +25,7 @@ apt-get; I'll get a list of the specific packages to install up here soon.
 """
 
 from __future__ import division
+from operator import itemgetter
 from parcon import railroad as rr
 from parcon import options
 from math import radians
@@ -286,7 +287,7 @@ def size_of_Or(image, construct, options):
     if len(constructs) == 1:
         return size_of(image, constructs[0], options)
     sizes = [size_of(image, c, options) for c in constructs]
-    max_width = max(sizes, key=lambda (w, h, l): w)[0]
+    max_width = max(sizes, key=itemgetter(0))[0]
     total_height = sum([h for w, h, l in sizes])
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
     width = ((options.raildraw_or_radius * 4) + options.raildraw_or_before
@@ -303,7 +304,7 @@ def draw_Or(image, x, y, construct, options, forward):
     width, height, line_position = size_of_Or(image, construct, options)
     constructs = construct.constructs
     sizes = [size_of(image, c, options) for c in constructs]
-    max_width = max(sizes, key=lambda (w, h, l): w)[0]
+    max_width = max(sizes, key=itemgetter(0))[0]
     radius = options.raildraw_or_radius
     spacing = options.raildraw_or_spacing
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)

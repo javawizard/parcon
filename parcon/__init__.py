@@ -123,6 +123,7 @@ Then parser) and the identity element being Return(None).
 # terms of the GNU Lesser General Public License.
 
 import itertools
+from operator import itemgetter
 from parcon import static
 import re
 import collections
@@ -408,14 +409,14 @@ def filter_expectations(expected):
     if static.compile([static.Positional(int, EUnsatisfiable)]).matches(expected):
         # This is a bunch of EUnsatisfiables, so we simply take the one at the
         # last position and return a singleton list based off of it.
-        position, e = max(expected, key=lambda (position, _): position)
+        position, e = max(expected, key=itemgetter(0))
         expected = [e]
     else:
         # This contains things besides EUnsatisfiables, so we filter out all of
         # the unsatisfiables, then get all the other ones at the resulting
         # maximum position.
         expected = [e for e in expected if not isinstance(e[1], EUnsatisfiable)]
-        position = max(expected, key=lambda (position, _): position)[0]
+        position = max(expected, key=itemgetter(0))[0]
         expected = [e for p, e in expected if p == position]
     # Now we remove duplicates. I used to pass these into set() until I
     # discovered that because Expectation objects don't compare based on their
@@ -2274,7 +2275,7 @@ def separated(item_parser, separator_parser):
     # prevent the + concatenating it with the ()[...] from filtering it out if
     # the item_parser results in None. Ideally, there should be some way to
     # create a Then while telling it not to filter out None instances. 
-    return (item_parser[lambda a: (a,)] + (~separator_parser + item_parser)[...])[lambda (a, rest): [a] + rest]
+    return (item_parser[lambda a: (a,)] + (~separator_parser + item_parser)[...])[lambda x: [x[0]] + x[1]]
 
 
 delimited = separated
