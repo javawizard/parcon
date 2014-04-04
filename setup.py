@@ -80,5 +80,6 @@ are. Improved documentation for Pargen and Static will come soon.
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Text Processing"
     ],
-    packages=["parcon", "parcon.pargen", "parcon.pargon", "parcon.railroad"]
+    packages=["parcon", "parcon.pargen", "parcon.pargon", "parcon.railroad"],
+    install_requires=["six"]
 )
