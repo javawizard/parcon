@@ -122,7 +122,12 @@ Then parser) and the identity element being Return(None).
 # Parcon is Copyright 2011 Alexander Boyd. Released under the
 # terms of the GNU Lesser General Public License.
 
+from __future__ import print_function
 import itertools
+from operator import itemgetter
+import six
+# noinspection PyUnresolvedReferences
+from six.moves import range
 from parcon import static
 import re
 import collections
@@ -324,15 +329,15 @@ class Result(object):
     >>> successful_result = match(0, "some random value", [])
     >>> failed_result = failure([(0, EUnsatisfiable())])
     >>> if successful_result:
-    ...     print "Yes"
+    ...     print("Yes")
     ... else:
-    ...     print "No"
+    ...     print("No")
     ...
     Yes
     >>> if failed_result:
-    ...     print "Yes"
+    ...     print("Yes")
     ... else:
-    ...     print "No"
+    ...     print("No")
     ...
     No
     """
@@ -349,7 +354,9 @@ class Result(object):
     
     def __nonzero__(self):
         return self.end is not None
-    
+
+    __bool__ = __nonzero__
+
     def __str__(self):
         if self:
             return "<Result: %s ending at %s>" % (self.value, self.end)
@@ -408,14 +415,14 @@ def filter_expectations(expected):
     if static.compile([static.Positional(int, EUnsatisfiable)]).matches(expected):
         # This is a bunch of EUnsatisfiables, so we simply take the one at the
         # last position and return a singleton list based off of it.
-        position, e = max(expected, key=lambda (position, _): position)
+        position, e = max(expected, key=itemgetter(0))
         expected = [e]
     else:
         # This contains things besides EUnsatisfiables, so we filter out all of
         # the unsatisfiables, then get all the other ones at the resulting
         # maximum position.
         expected = [e for e in expected if not isinstance(e[1], EUnsatisfiable)]
-        position = max(expected, key=lambda (position, _): position)[0]
+        position = max(expected, key=itemgetter(0))[0]
         expected = [e for p, e in expected if p == position]
     # Now we remove duplicates. I used to pass these into set() until I
     # discovered that because Expectation objects don't compare based on their
@@ -510,7 +517,7 @@ def promote(value):
     """
     if isinstance(value, Parser):
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         return Literal(value)
     return value
 
@@ -554,9 +561,9 @@ def op_getitem(parser, function):
         return Repeat(parser, function.start, function.stop)
     elif function == Ellipsis:
         return ZeroOrMore(parser)
-    elif isinstance(function, (int, long)):
+    elif isinstance(function, six.integer_types):
         return Repeat(parser, function, function)
-    elif isinstance(function, basestring):
+    elif isinstance(function, six.string_types):
         return Tag(function, parser)
     elif callable(function):
         return Translate(parser, function)
@@ -1393,7 +1400,7 @@ class Repeat(_GParser):
             return self.parser.parse(text, position, end, space)
         result = []
         parse_result = None
-        for i in (xrange(self.max) if self.max is not None else itertools.count(0)):
+        for i in (range(self.max) if self.max is not None else itertools.count(0)):
             parse_result = self.parser.parse(text, position, end, space)
             if not parse_result:
                 break
@@ -1801,7 +1808,7 @@ class Word(Parser):
         new_position = result.end()
         if total_consumed < self.min:
             return failure((result.end(), EAnyCharIn(self.chars)))
-        if total_consumed < self.max:
+        if self.max is None or total_consumed < self.max:
             expected = (new_position, EAnyCharIn(self.chars))
         else:
             expected = (new_position, EUnsatisfiable())
@@ -2129,10 +2136,9 @@ class Tag(_GRParser):
     >>> decimal_parser = ((+Digit())[concat]["integer"] + Optional("." + \
                              (+Digit())[concat], "")["decimal"])[dict]
     
-    Note that the short notation of parser[tag] only works if tag is a string
-    (or a unicode instance; anything that subclasses from basestring works).
-    No other datatypes will work; if you want to use those, you'll need to use
-    Tag itself instead of the short notation.
+    Note that the short notation of parser[tag] only works if tag is a unicode
+    or byte string. No other datatypes will work; if you want to use those,
+    you'll need to use Tag itself instead of the short notation.
     
     If you want to preserve all values with a particular tag instead of just
     one of them, you may want to use parser[list_dict] instead of parser[dict].
@@ -2274,7 +2280,7 @@ def separated(item_parser, separator_parser):
     # prevent the + concatenating it with the ()[...] from filtering it out if
     # the item_parser results in None. Ideally, there should be some way to
     # create a Then while telling it not to filter out None instances. 
-    return (item_parser[lambda a: (a,)] + (~separator_parser + item_parser)[...])[lambda (a, rest): [a] + rest]
+    return (item_parser[lambda a: (a,)] + (~separator_parser + item_parser)[...])[lambda x: [x[0]] + x[1]]
 
 
 delimited = separated
@@ -2320,7 +2326,7 @@ def concat(value, delimiter=""):
     then iterates over all of the items in the resulting list and concatenates
     all of them that are strings.
     """
-    return delimiter.join([s for s in flatten(value) if isinstance(s, basestring)])
+    return delimiter.join([s for s in flatten(value) if isinstance(s, six.string_types)])
 
 
 def list_dict(list_of_pairs):

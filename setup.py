@@ -47,13 +47,13 @@ Here's an example of a simple expression evaluator written using Parcon::
 
 This expression evaluator can be used thus::
 
-    print expr.parse_string("1+2") # prints 3
-    print expr.parse_string("1+2+3") # prints 6
-    print expr.parse_string("1+2+3+4") # prints 10
-    print expr.parse_string("3*4") # prints 12
-    print expr.parse_string("5+3*4") # prints 17
-    print expr.parse_string("(5+3)*4") # prints 32
-    print expr.parse_string("10/4") # prints 2.5
+    print(expr.parse_string("1+2")) # prints 3
+    print(expr.parse_string("1+2+3")) # prints 6
+    print(expr.parse_string("1+2+3+4")) # prints 10
+    print(expr.parse_string("3*4")) # prints 12
+    print(expr.parse_string("5+3*4")) # prints 17
+    print(expr.parse_string("(5+3)*4")) # prints 32
+    print(expr.parse_string("10/4")) # prints 2.5
 
 A syntax diagram can then be generated from it like this::
 
@@ -72,6 +72,7 @@ are. Improved documentation for Pargen and Static will come soon.
         "Programming Language :: Python",
         "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
         "Operating System :: OS Independent",
         "Development Status :: 4 - Beta",
@@ -79,5 +80,6 @@ are. Improved documentation for Pargen and Static will come soon.
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Text Processing"
     ],
-    packages=["parcon", "parcon.pargen", "parcon.pargon", "parcon.railroad"]
+    packages=["parcon", "parcon.pargen", "parcon.pargon", "parcon.railroad"],
+    install_requires=["six"]
 )

@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 from traceback import print_exc
 
 class TestException(Exception):
@@ -55,8 +55,8 @@ class TestSuite(object):
     
     def warn_missing_targets(self, targets):
         if len(targets - self.targets) > 0:
-            print "WARNING: missing tests for " + str(list(targets - self.targets))
-            print "-" * 75
+            print("WARNING: missing tests for " + str(list(targets - self.targets)))
+            print("-" * 75)
     
     def run_tests(self):
         passed = 0
@@ -68,11 +68,11 @@ class TestSuite(object):
                 target_desc += " in module " + target.__module__
             try:
                 test()
-                print "TEST PASSED: " + test.__name__ + " testing " + target_desc
+                print("TEST PASSED: " + test.__name__ + " testing " + target_desc)
                 passed += 1
             except:
-                print "TEST FAILED: " + test.__name__ + " testing " + target_desc
-                print "Exception for the above failure:"
+                print("TEST FAILED: " + test.__name__ + " testing " + target_desc)
+                print("Exception for the above failure:")
                 print_exc()
                 failed += 1
         return passed, failed

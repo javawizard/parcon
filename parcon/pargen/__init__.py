@@ -10,7 +10,7 @@ formatter (essentially a simplified reimplementation of Python's json.dumps):
 >>> number = Type(float, int, long, Decimal) & String()
 >>> boolean = Type(bool) & ((Is(True) & "true") | (Is(False) & "false"))
 >>> null = Is(None) & "null"
->>> string = Type(basestring) & '"' + String() + '"'
+>>> string = Type(str) & '"' + String() + '"'
 >>> json_list = Type(list, tuple) & ("[" + ForEach(json, ", ") + "]")
 >>> json_map =Type(dict) &  ("{" + ForEach(Head(json) + ": " + Tail(json), ", ") + "}")
 >>> json << (boolean | number | null | string | json_list | json_map)
@@ -25,6 +25,7 @@ class for pargen, analogous to parcon.Parser. It contains some module
 documentation that can probably help to get you started.
 """
 
+from __future__ import print_function
 """
 TODO: write something that can convert a number into its textual representation,
 so like the opposite of the number parser example, and then write something that
@@ -34,6 +35,7 @@ things for extracting keys from maps.
 """
 
 from parcon import static
+import six
 
 sequence_type = static.Sequence()
 sequence_or_dict_type = static.Or(static.Sequence(), static.Type(dict))
@@ -54,9 +56,9 @@ class Result(object):
     particular result succeeded:
     
     if some_result:
-        print "Result succeeded"
+        print("Result succeeded")
     else:
-        print "Result failed"
+        print("Result failed")
     """
     def __init__(self, text, remainder):
         self.text = text
@@ -64,7 +66,9 @@ class Result(object):
     
     def __nonzero__(self):
         return self.text is not None
-    
+
+    __bool__ = __nonzero__
+
     def __str__(self):
         if self:
             return "<Result: %s with remainder %s>" % (repr(self.text), self.remainder)
@@ -100,7 +104,7 @@ def match(text, remainder):
 def promote(value):
     if isinstance(value, Formatter):
         return value
-    if isinstance(value, basestring):
+    if isinstance(value, six.string_types):
         return Literal(value)
     return value
 

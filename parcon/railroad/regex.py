@@ -43,7 +43,7 @@ def init_parser():
     expr = p.Forward()
     char_class_char = (p.AnyChar() - p.CharIn("^]"))[lambda x: rr.Token(rr.TEXT, x)]
     char_class_range = ((p.AnyChar() - p.CharIn("^-]")) + "-" + (p.AnyChar() - "-]"))[
-        lambda (a, b): rr.Or(*[rr.Token(rr.TEXT, chr(c)) for c in range(ord(a), ord(b)+1)])]
+        lambda x: rr.Or(*[rr.Token(rr.TEXT, chr(c)) for c in range(ord(x[0]), ord(x[1])+1)])]
     char_class = ("[" + +(char_class_range | char_class_char) + "]")[
         lambda x: rr.Or(*x) if len(x) != 1 else x[0]]
     char = (p.AnyChar() - p.CharIn("[]().|\\"))
@@ -53,7 +53,7 @@ def init_parser():
     non_matching_group = "(?:" + expr + ")"
     component = char_class | chars | non_matching_group | matching_group
     alt_component = (component + p.Optional(p.CharIn("*+?"), (None,)))[
-        lambda (t, m): _convert_repetition(t, m)]
+        lambda x: _convert_repetition(*x)]
     alt_component = alt_component[...][lambda x: x[0] if len(x) == 1 else rr.Then(*x)]
     alternative = p.InfixExpr(alt_component, [("|", rr.Or)])
     expr << alternative
