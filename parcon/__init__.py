@@ -221,8 +221,8 @@ class EStringLiteral(Expectation):
         self.text = text
     
     def format(self):
-        return '"' + self.text + '"'
-    
+        return repr(self.text)
+
     def __str__(self):
         return "EStringLiteral(%s)" % repr(self.text)
 
