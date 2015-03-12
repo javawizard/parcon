@@ -500,9 +500,10 @@ def format_failure_with_context(expected, string):
     w = 37
     context_string = string[max(0, position - w):position + w]
     marker_pos = min(position, w)
-    marker_string = " " * marker_pos + "^"
-    return "%s\n  %r\n   %s" % (
-        formatted_expectations, context_string, marker_string)
+    marker_spacer = ''.join(
+        ' ' * (len(repr(c)) - 2) for c in context_string[:marker_pos])
+    return "%s\n  %r\n   %s^" % (
+        formatted_expectations, context_string, marker_spacer)
 
 
 def parse_space(text, position, end, space):
