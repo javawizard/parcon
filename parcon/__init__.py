@@ -1573,7 +1573,10 @@ class Forward(_GRParser):
         return _rr.create_railroad(self.parser, options)
     
     def __repr__(self):
-        return "Forward()"
+        if self.parser is None:
+            return "Forward()"
+        else:
+            return "Forward(%s)" % self.parser
 
 
 class InfixExpr(_GRParser):
