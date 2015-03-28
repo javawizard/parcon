@@ -69,13 +69,14 @@ class Result(object):
 
     __bool__ = __nonzero__
 
-    def __str__(self):
+    def __repr__(self):
         if self:
             return "<Result: %s with remainder %s>" % (repr(self.text), self.remainder)
         else:
             return "<Result: Failure>"
-    
-    __repr__ = __str__
+
+    def __eq__(self, other):
+        return self.text == other.text and self.remainder == other.remainder
 
 
 def failure():
