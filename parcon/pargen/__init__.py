@@ -138,6 +138,9 @@ class Formatter(object):
     
     The main method that you'll want to look at is format.
     """
+    def __repr__(self, content=''):
+        return '{}({})'.format(type(self).__name__, content)
+
     def format(self, input):
         """
         Formats a specified input object into a piece of text. Subclasses of
@@ -150,7 +153,7 @@ class Formatter(object):
         appropriate type.
         """
         raise Exception("format not implemented for " + str(type(self)))
-    
+
     __add__ = op_add
     __and__ = op_and
     __or__ = op_or
@@ -167,6 +170,9 @@ class Literal(Formatter):
     def __init__(self, text):
         self.text = text
     
+    def __repr__(self):
+        return super(Literal, self).__repr__(repr(self.text))
+
     def format(self, input):
         return match(self.text, input)
 
@@ -185,7 +191,13 @@ class ForEach(Formatter):
     def __init__(self, formatter, delimiter=""):
         self.formatter = formatter
         self.delimiter = delimiter
-    
+
+    def __repr__(self):
+        content = repr(self.formatter)
+        if self.delimiter:
+            content += ', ' + repr(self.delimiter)
+        return super(ForEach, self).__repr__(content)
+
     def format(self, input):
         if not sequence_or_dict_type.matches(input):
             return failure()
@@ -235,6 +247,9 @@ class _ListExtremity(Formatter):
     def __init__(self, formatter):
         self.formatter = formatter
     
+    def __repr__(self):
+        return super(_ListExtremity, self).__repr__(repr(self.formatter))
+
     def format(self, input):
         if not sequence_type.matches(input):
             return failure()
@@ -308,6 +323,9 @@ class Type(Formatter):
     """
     def __init__(self, *static_types):
         self.static_type = static.Or(static_types)
+
+    def __repr__(self):
+        return super(Type, self).__repr__(str(self.static_type))
     
     def format(self, input):
         if not self.static_type.matches(input):
@@ -333,6 +351,10 @@ class And(Formatter):
     def __init__(self, first, second):
         self.first = first
         self.second = second
+
+    def __repr__(self):
+        return super(And, self).__repr__(
+            '{}, {}'.format(self.first, self.second))
     
     def format(self, input):
         first_result = self.first.format(input)
@@ -353,6 +375,9 @@ class Then(Formatter):
     def __init__(self, first, second):
         self.first = first
         self.second = second
+
+    def __repr__(self):
+        return super(Then, self).__repr__('{}, {}'.format(self.first, self.second))
     
     def format(self, input):
         first_result = self.first.format(input)
@@ -376,7 +401,11 @@ class First(Formatter):
     """
     def __init__(self, *formatters):
         self.formatters = formatters
-    
+
+    def __repr__(self):
+        return super(First, self).__repr__(', '.join(map(
+            repr, self.formatters)))
+
     def format(self, input):
         for formatter in self.formatters:
             result = formatter.format(input)
@@ -417,70 +446,42 @@ class Forward(Formatter):
     __lshift__ = set
 
 
-class Is(Formatter):
+class _Cmp(Formatter):
+    """
+    Base class for formatters that compare their input to a known value.
+
+    Subclasses must implement a _cmp method that returns a boolean with the
+    result of the comparison.
+    """
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return super(_Cmp, self).__repr__(repr(self.value))
+
+    def format(self, input):
+        if self._cmp(input, self.value):
+            return match("", input)
+        return failure()
+
+
+class Is(_Cmp):
     """
     A formatter that consumes no input and returns the empty string. However,
     it only succeeds if its input is equal, as per the == operator, to a value
     provided to the Is instance when it's constructed.
     """
-    def __init__(self, value):
-        self.value = value
-    
-    def format(self, input):
-        if input == self.value:
-            return match("", input)
-        return failure()
+    @staticmethod
+    def _cmp(a, b):
+        return a == b
 
 
-class IsExactly(Formatter):
+class IsExactly(_Cmp):
     """
     Same as Is, but IsExactly uses Python's is operator instead of Python's ==
     operator to perform the equality check. This should be used for True,
     False, None, and other such values.
     """
-    def __init__(self, value):
-        self.value = value
-    
-    def format(self, input):
-        if input is self.value:
-            return match("", input)
-        return failure()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    @staticmethod
+    def _cmp(a, b):
+        return a is b
