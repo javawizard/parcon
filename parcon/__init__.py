@@ -234,7 +234,7 @@ class ERegex(Expectation):
         self.pattern_text = pattern_text
     
     def format(self):
-        return 'regex "' + self.pattern_text + '"'
+        return 'regex ' + repr(self.pattern_text)
     
     def __str__(self):
         return "ERegex(%s)" % repr(self.pattern_text)
@@ -250,7 +250,7 @@ class EAnyCharIn(Expectation):
         self.chars = chars
     
     def format(self):
-        return 'any char in "' + "".join(self.chars) + '"'
+        return 'any char in ' + repr("".join(self.chars))
     
     def __str__(self):
         return "EAnyCharIn(%s)" % repr(self.chars)
@@ -266,7 +266,7 @@ class EAnyCharNotIn(Expectation):
         self.chars = chars
     
     def format(self):
-        return 'any char not in "' + "".join(self.chars) + '"'
+        return 'any char not in ' + repr("".join(self.chars))
     
     def __str__(self):
         return "EAnyCharNotIn(%s)" % repr(self.chars)
@@ -493,6 +493,19 @@ def format_failure(expected):
     return format_expectations(position, expectations)
 
 
+def format_failure_with_context(expected, string):
+    position, expectations = filter_expectations(expected)
+    expectations = stringify_expectations(expectations)
+    formatted_expectations = format_expectations(position, expectations)
+    w = 37
+    context_string = string[max(0, position - w):position + w]
+    marker_pos = min(position, w)
+    marker_spacer = ''.join(
+        ' ' * (len(repr(c)) - 2) for c in context_string[:marker_pos])
+    return "%s\n  %r\n   %s^" % (
+        formatted_expectations, context_string, marker_spacer)
+
+
 def parse_space(text, position, end, space):
     """
     Repeatedly applies the specified whitespace parser to the specified text
@@ -638,8 +651,11 @@ class Parser(object):
             # and if it is, we return the value.
             if whitespace.consume(string, result.end, len(string)) == len(string):
                 return result.value
-        raise ParseException("Parse failure: " + format_failure(result.expected), result.expected)
-    
+        raise ParseException(
+            "Parse failure: " + format_failure_with_context(
+                result.expected, string),
+            result.expected)
+
     def consume(self, text, position, end):
         result = self.parse(text, position, end, Invalid())
         while result:
