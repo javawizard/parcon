@@ -1344,6 +1344,15 @@ class Exact(_GRParser):
         return "Exact(" + repr(self.parser) + ")"
 
 
+class NonConsumingExact(Exact):
+    """
+    Like Exact(), except that it does not use the whitespace argument of
+    parse_string() to consume leading whitespace.
+    """
+    def parse(self, text, position, end, space):
+        return self.parser.parse(text, position, end, self.space_parser)
+
+
 class Optional(_GRParser):
     """
     A parser that returns whatever its underlying parser returns, except that
