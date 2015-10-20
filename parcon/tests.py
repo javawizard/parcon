@@ -44,6 +44,24 @@ def case(): #@DuplicatedSignature
     assert x.parse_string("5") == 5
 
 
+@test(parcon.Exact)
+def case(): #@DuplicatedSignature
+    ws = parcon.Word(parcon.whitespace)
+    x = parcon.Exact(parcon.alpha_word + ws + parcon.alpha_word)
+    assert x.parse_string('foo \t\r\n bar') == ('foo', ' \t\r\n ', 'bar')
+    x = parcon.Exact(ws + parcon.alpha_word)
+    assert (
+        x.parse_string(' \t\r\n bar', whitespace=parcon.Word(' ')) ==
+        ('\t\r\n ', 'bar'))
+
+
+@test(parcon.Invalid)
+def case(): #@DuplicatedSignature
+    x = (parcon.Word(parcon.whitespace) + parcon.alpha_word)
+    assert (
+        x.parse_string(' \t bar', whitespace=parcon.Invalid()) ==
+        (' \t ', 'bar'))
+
 def run_tests():
     targets = set()
     targets |= set(subclasses_in_module(parcon.Parser, ("parcon",)))
