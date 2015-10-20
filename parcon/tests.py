@@ -55,6 +55,13 @@ def case(): #@DuplicatedSignature
         ('\t\r\n ', 'bar'))
 
 
+@test(parcon.NonConsumingExact)
+def case(): #@DuplicatedSignature
+    ws = parcon.Word(parcon.whitespace)
+    x = parcon.NonConsumingExact(ws + parcon.alpha_word)
+    assert x.parse_string(' \t\r\n bar') == (' \t\r\n ', 'bar')
+
+
 @test(parcon.Invalid)
 def case(): #@DuplicatedSignature
     x = (parcon.Word(parcon.whitespace) + parcon.alpha_word)
