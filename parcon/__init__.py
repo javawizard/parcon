@@ -234,7 +234,7 @@ class ERegex(Expectation):
         self.pattern_text = pattern_text
     
     def format(self):
-        return 'regex "' + self.pattern_text + '"'
+        return 'regex ' + repr(self.pattern_text)
     
     def __str__(self):
         return "ERegex(%s)" % repr(self.pattern_text)
@@ -250,7 +250,7 @@ class EAnyCharIn(Expectation):
         self.chars = chars
     
     def format(self):
-        return 'any char in "' + "".join(self.chars) + '"'
+        return 'any char in ' + repr("".join(self.chars))
     
     def __str__(self):
         return "EAnyCharIn(%s)" % repr(self.chars)
@@ -266,7 +266,7 @@ class EAnyCharNotIn(Expectation):
         self.chars = chars
     
     def format(self):
-        return 'any char not in "' + "".join(self.chars) + '"'
+        return 'any char not in ' + repr("".join(self.chars))
     
     def __str__(self):
         return "EAnyCharNotIn(%s)" % repr(self.chars)
