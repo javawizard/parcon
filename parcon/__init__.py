@@ -1347,12 +1347,14 @@ class Exact(_GRParser):
 class Optional(_GRParser):
     """
     A parser that returns whatever its underlying parser returns, except that
-    if the specified parser fails, this parser succeeds and returns the default
+    if the specified parser fails, this parser succeeds and either invokes the
+    default_factory callable, returning the result, or returns the default
     result specified to it (which, itself, defaults to None).
     """
-    def __init__(self, parser, default=None):
+    def __init__(self, parser, default=None, default_factory=None):
         self.parser = parser
         self.default = default
+        self.default_factory = default_factory or (lambda: default)
         self.railroad_children = [self.parser]
     
     def parse(self, text, position, end, space):
@@ -1360,7 +1362,7 @@ class Optional(_GRParser):
         if result:
             return result
         else:
-            return match(position, self.default, result.expected)
+            return match(position, self.default_factory(), result.expected)
     
     def do_graph(self, graph):
         graph.add_node(id(self), label="Optional, defaulting to:\n%s" % repr(self.default))
