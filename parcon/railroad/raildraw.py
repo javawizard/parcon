@@ -31,8 +31,11 @@ from parcon import options
 from math import radians
 try:
     import cairo
-    import pango
-    import pangocairo
+    import gi
+    gi.require_foreign('cairo')
+    gi.require_version('Pango', '1.0')
+    gi.require_version('PangoCairo', '1.0')
+    from gi.repository import Pango, PangoCairo
 except ImportError:
     print("ERROR: parcon.railroad.raildraw requires Cairo, PyCairo, Pango,"
           "and PyGTK (for the Pango bindings). Please install any of those "
@@ -48,11 +51,11 @@ except ImportError:
 size_functions = {}
 draw_functions = {}
 
-plain_font = pango.FontDescription("sans 10")
-bold_font = pango.FontDescription("sans bold 10")
-italic_font = pango.FontDescription("sans italic 10")
-bold_italic_font = pango.FontDescription("sans bold italic 10")
-title_font = pango.FontDescription("sans bold 14")
+plain_font = Pango.FontDescription("sans 10")
+bold_font = Pango.FontDescription("sans bold 10")
+italic_font = Pango.FontDescription("sans italic 10")
+bold_italic_font = Pango.FontDescription("sans bold italic 10")
+title_font = Pango.FontDescription("sans bold 14")
 default_line_size = 2
 
 def create_options(map):
@@ -100,12 +103,12 @@ def f(map, key):
     return decorator
 
 
-def size_of(image, construct, options):
-    return size_functions[type(construct)](image, construct, options)
+def size_of(context, construct, options):
+    return size_functions[type(construct)](context, construct, options)
 
 
-def draw(image, x, y, construct, options, forward):
-    return draw_functions[type(construct)](image, x, y, construct, options, forward)
+def draw(context, x, y, construct, options, forward):
+    return draw_functions[type(construct)](context, x, y, construct, options, forward)
 
 
 def get_font_for_token(options, token):
@@ -120,7 +123,7 @@ def get_font_for_token(options, token):
     raise ValueError
 
 
-def draw_arrow(image, x, y, options, forward):
+def draw_arrow(context, x, y, options, forward):
     """
     Draws an arrow at the specified position.
     """
@@ -128,31 +131,31 @@ def draw_arrow(image, x, y, options, forward):
     line_pos = height / 2
     indent = options.raildraw_arrow_indent * width
     if forward:
-        image.move_to(x, y + line_pos)
-        image.line_to(x + indent, y + line_pos)
-        image.stroke()
-        image.move_to(x, y)
-        image.line_to(x + width, y + line_pos)
-        image.line_to(x, y + height)
-        image.line_to(x + indent, y + line_pos)
+        context.move_to(x, y + line_pos)
+        context.line_to(x + indent, y + line_pos)
+        context.stroke()
+        context.move_to(x, y)
+        context.line_to(x + width, y + line_pos)
+        context.line_to(x, y + height)
+        context.line_to(x + indent, y + line_pos)
     else:
-        image.move_to(x + width, y + line_pos)
-        image.line_to(x + (width - indent), y + line_pos)
-        image.stroke()
-        image.move_to(x + width, y)
-        image.line_to(x, y + line_pos)
-        image.line_to(x + width, y + height)
-        image.line_to(x + (width - indent), y + line_pos)
-    image.close_path()
-    image.fill()
+        context.move_to(x + width, y + line_pos)
+        context.line_to(x + (width - indent), y + line_pos)
+        context.stroke()
+        context.move_to(x + width, y)
+        context.line_to(x, y + line_pos)
+        context.line_to(x + width, y + height)
+        context.line_to(x + (width - indent), y + line_pos)
+    context.close_path()
+    context.fill()
 
 
-def draw_line(image, x1, y1, x2, y2):
+def draw_line(context, x1, y1, x2, y2):
     if x1 == y1 and x2 == y2: # Empty line
         return
-    image.move_to(x1, y1)
-    image.line_to(x2, y2)
-    image.stroke()
+    context.move_to(x1, y1)
+    context.line_to(x2, y2)
+    context.stroke()
 
 
 def size_of_arrow(options):
@@ -166,21 +169,20 @@ def size_of_arrow(options):
 
 
 @f(size_functions, rr.Nothing)
-def size_of_Nothing(image, construct, options):
+def size_of_Nothing(context, construct, options):
     width, height = options.raildraw_size_of_arrow(options)
     return width, height, height / 2
 
 
 @f(draw_functions, rr.Nothing)
-def draw_Nothing(image, x, y, construct, options, forward):
-    return options.raildraw_draw_arrow(image, x, y, options, forward)
+def draw_Nothing(context, x, y, construct, options, forward):
+    return options.raildraw_draw_arrow(context, x, y, options, forward)
 
 
 @f(size_functions, rr.Token)
-def size_of_Token(image, construct, options):
-    pango_context = pangocairo.CairoContext(image)
-    layout = pango_context.create_layout()
-    layout.set_text(construct.text)
+def size_of_Token(context, construct, options):
+    layout = PangoCairo.create_layout(context)
+    layout.set_text(construct.text, -1)
     layout.set_font_description(get_font_for_token(options, construct))
     text_width, text_height = layout.get_pixel_size()
     h_padding = options.raildraw_token_padding
@@ -200,53 +202,52 @@ def size_of_Token(image, construct, options):
 
 
 @f(draw_functions, rr.Token)
-def draw_Token(image, x, y, construct, options, forward):
+def draw_Token(context, x, y, construct, options, forward):
     margin = options.raildraw_token_margin
     h_padding = options.raildraw_token_padding
     v_padding = options.raildraw_token_padding
     if construct.type not in (rr.TEXT, rr.ANYCASE):
         h_padding += options.raildraw_token_rect_padding
-    pango_context = pangocairo.CairoContext(image)
-    layout = pango_context.create_layout()
-    layout.set_text(construct.text)
+    layout = PangoCairo.create_layout(context)
+    layout.set_text(construct.text, -1)
     layout.set_font_description(get_font_for_token(options, construct))
     text_width, text_height = layout.get_pixel_size()
     if construct.type in (rr.TEXT, rr.ANYCASE):
         diameter = v_padding + text_height + v_padding
         radius = diameter / 2
-        image.move_to(x + margin + radius + h_padding, y + margin + v_padding)
-        pango_context.show_layout(layout)
-        image.move_to(x + margin + radius, y + margin)
-        image.line_to(x + margin + radius + h_padding + text_width + h_padding, y + margin)
-        image.arc(x + margin + radius + h_padding + text_width + h_padding, y + margin + radius, radius, radians(270), radians(90))
-        image.line_to(x + margin + radius, y + margin + v_padding + text_height + v_padding)
-        image.arc(x + margin + radius, y + margin + radius, radius, radians(90), radians(270))
-        image.close_path() # Shouldn't have any effect since we're already at
+        context.move_to(x + margin + radius + h_padding, y + margin + v_padding)
+        PangoCairo.show_layout(context, layout)
+        context.move_to(x + margin + radius, y + margin)
+        context.line_to(x + margin + radius + h_padding + text_width + h_padding, y + margin)
+        context.arc(x + margin + radius + h_padding + text_width + h_padding, y + margin + radius, radius, radians(270), radians(90))
+        context.line_to(x + margin + radius, y + margin + v_padding + text_height + v_padding)
+        context.arc(x + margin + radius, y + margin + radius, radius, radians(90), radians(270))
+        context.close_path() # Shouldn't have any effect since we're already at
         # the start, but just in case
-        image.stroke()
+        context.stroke()
         width = margin + radius + h_padding + text_width + h_padding + radius + margin
     else:
-        image.move_to(x + margin + h_padding, y + margin + v_padding)
-        pango_context.show_layout(layout)
-        image.move_to(x + margin, y + margin)
-        image.line_to(x + margin + h_padding + text_width + h_padding, y + margin)
-        image.line_to(x + margin + h_padding + text_width + h_padding, y + margin + v_padding + text_height + v_padding)
-        image.line_to(x + margin, y + margin + v_padding + text_height + v_padding)
-        image.close_path()
-        image.stroke()
+        context.move_to(x + margin + h_padding, y + margin + v_padding)
+        PangoCairo.show_layout(context, layout)
+        context.move_to(x + margin, y + margin)
+        context.line_to(x + margin + h_padding + text_width + h_padding, y + margin)
+        context.line_to(x + margin + h_padding + text_width + h_padding, y + margin + v_padding + text_height + v_padding)
+        context.line_to(x + margin, y + margin + v_padding + text_height + v_padding)
+        context.close_path()
+        context.stroke()
         width = margin + h_padding + text_width + h_padding + margin
-    image.move_to(x, y + margin + v_padding + (text_height / 2))
-    image.line_to(x + margin, y + margin + v_padding + (text_height / 2))
-    image.stroke()
-    image.move_to(x + width, y + margin + v_padding + (text_height / 2))
-    image.line_to(x + width - margin, y + margin + v_padding + (text_height / 2))
-    image.stroke()
+    context.move_to(x, y + margin + v_padding + (text_height / 2))
+    context.line_to(x + margin, y + margin + v_padding + (text_height / 2))
+    context.stroke()
+    context.move_to(x + width, y + margin + v_padding + (text_height / 2))
+    context.line_to(x + width - margin, y + margin + v_padding + (text_height / 2))
+    context.stroke()
 
 
 @f(size_functions, rr.Then)
-def size_of_Then(image, construct, options):
+def size_of_Then(context, construct, options):
     constructs = construct.constructs
-    sizes = [size_of(image, c, options) for c in constructs]
+    sizes = [size_of(context, c, options) for c in constructs]
     before_heights = [l for w, h, l in sizes]
     after_heights = [h - l for w, h, l in sizes]
     max_before = max(before_heights)
@@ -258,7 +259,7 @@ def size_of_Then(image, construct, options):
 
 
 @f(draw_functions, rr.Then)
-def draw_Then(image, x, y, construct, options, forward):
+def draw_Then(context, x, y, construct, options, forward):
     constructs = construct.constructs
     arrow_before = options.raildraw_then_before_arrow
     arrow_after = options.raildraw_then_after_arrow
@@ -266,27 +267,27 @@ def draw_Then(image, x, y, construct, options, forward):
         constructs = list(reversed(constructs))
         arrow_before, arrow_after = arrow_after, arrow_before
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
-    width, height, line_position = size_of_Then(image, construct, options)
+    width, height, line_position = size_of_Then(context, construct, options)
     current_x = x
     for index, c in enumerate(constructs):
-        c_width, c_height, c_line_position = size_of(image, c, options)
-        draw(image, current_x, y + (line_position - c_line_position), c, options, forward)
+        c_width, c_height, c_line_position = size_of(context, c, options)
+        draw(context, current_x, y + (line_position - c_line_position), c, options, forward)
         current_x += c_width
         if index != (len(constructs) - 1):
-            draw_line(image, current_x, y + line_position, current_x + arrow_before, y + line_position)
+            draw_line(context, current_x, y + line_position, current_x + arrow_before, y + line_position)
             current_x += arrow_before
-            options.raildraw_draw_arrow(image, current_x, y + line_position - (arrow_height / 2), options, forward)
+            options.raildraw_draw_arrow(context, current_x, y + line_position - (arrow_height / 2), options, forward)
             current_x += arrow_width
-            draw_line(image, current_x, y + line_position, current_x + arrow_after, y + line_position)
+            draw_line(context, current_x, y + line_position, current_x + arrow_after, y + line_position)
             current_x += arrow_after
 
 
 @f(size_functions, rr.Or)
-def size_of_Or(image, construct, options):
+def size_of_Or(context, construct, options):
     constructs = construct.constructs
     if len(constructs) == 1:
-        return size_of(image, constructs[0], options)
-    sizes = [size_of(image, c, options) for c in constructs]
+        return size_of(context, constructs[0], options)
+    sizes = [size_of(context, c, options) for c in constructs]
     max_width = max(sizes, key=itemgetter(0))[0]
     total_height = sum([h for w, h, l in sizes])
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
@@ -298,12 +299,12 @@ def size_of_Or(image, construct, options):
 
 
 @f(draw_functions, rr.Or)
-def draw_Or(image, x, y, construct, options, forward):
+def draw_Or(context, x, y, construct, options, forward):
     if len(construct.constructs) == 1:
-        return draw(image, x, y, construct.constructs[0], options, forward)
-    width, height, line_position = size_of_Or(image, construct, options)
+        return draw(context, x, y, construct.constructs[0], options, forward)
+    width, height, line_position = size_of_Or(context, construct, options)
     constructs = construct.constructs
-    sizes = [size_of(image, c, options) for c in constructs]
+    sizes = [size_of(context, c, options) for c in constructs]
     max_width = max(sizes, key=itemgetter(0))[0]
     radius = options.raildraw_or_radius
     spacing = options.raildraw_or_spacing
@@ -320,52 +321,52 @@ def draw_Or(image, x, y, construct, options, forward):
         if isinstance(c, rr.Loop) and not isinstance(c.component, rr.Nothing):
             draw_arrows = False
         if index != 0:
-            image.move_to(x + radius, current_y + l - radius)
-            image.arc_negative(x + radius * 2, current_y + l - radius, radius, radians(180), radians(90))
-            image.stroke()
+            context.move_to(x + radius, current_y + l - radius)
+            context.arc_negative(x + radius * 2, current_y + l - radius, radius, radians(180), radians(90))
+            context.stroke()
         if not draw_arrows:
-            draw_line(image, x + radius * 2, current_y + l, x + radius * 2 + arrow_width, current_y + l)
+            draw_line(context, x + radius * 2, current_y + l, x + radius * 2 + arrow_width, current_y + l)
         else:
-            options.raildraw_draw_arrow(image, x + radius * 2, current_y + l - (arrow_height / 2), options, forward)
-        draw_line(image, x + radius * 2 + arrow_width, current_y + l, x + radius * 2 + arrow_width + before, current_y + l)
+            options.raildraw_draw_arrow(context, x + radius * 2, current_y + l - (arrow_height / 2), options, forward)
+        draw_line(context, x + radius * 2 + arrow_width, current_y + l, x + radius * 2 + arrow_width + before, current_y + l)
         construct_x = x + radius * 2 + arrow_width + before
         if isinstance(c, rr.Nothing):
-            draw_line(image, construct_x, current_y + l, construct_x + max_width / 2 - w / 2, current_y + l)
-            draw(image, construct_x + max_width / 2 - w / 2, current_y, c, options, forward)
-            draw_line(image, construct_x + max_width / 2 + w / 2, current_y + l, construct_x + max_width + after, current_y + l)
+            draw_line(context, construct_x, current_y + l, construct_x + max_width / 2 - w / 2, current_y + l)
+            draw(context, construct_x + max_width / 2 - w / 2, current_y, c, options, forward)
+            draw_line(context, construct_x + max_width / 2 + w / 2, current_y + l, construct_x + max_width + after, current_y + l)
         else:
-            draw(image, construct_x, current_y, c, options, forward)
-            draw_line(image, construct_x + w, current_y + l, construct_x + max_width + after, current_y + l)
+            draw(context, construct_x, current_y, c, options, forward)
+            draw_line(context, construct_x + w, current_y + l, construct_x + max_width + after, current_y + l)
         if not draw_arrows:
-            draw_line(image, construct_x + max_width + after, current_y + l, construct_x + max_width + after + arrow_width, current_y + l)
+            draw_line(context, construct_x + max_width + after, current_y + l, construct_x + max_width + after + arrow_width, current_y + l)
         else:
-            options.raildraw_draw_arrow(image, construct_x + max_width + after, current_y + l - (arrow_height / 2), options, forward)
+            options.raildraw_draw_arrow(context, construct_x + max_width + after, current_y + l - (arrow_height / 2), options, forward)
         if index != 0:
-            image.move_to(construct_x + max_width + after + arrow_width, current_y + l)
-            image.arc_negative(construct_x + max_width + after + arrow_width, current_y + l - radius, radius, radians(90), radians(0))
-            image.stroke()
+            context.move_to(construct_x + max_width + after + arrow_width, current_y + l)
+            context.arc_negative(construct_x + max_width + after + arrow_width, current_y + l - radius, radius, radians(90), radians(0))
+            context.stroke()
         if index == len(constructs) - 1: # Last construct
             line_end_y = current_y + l - radius
         current_y += spacing + h
-    image.move_to(x, y + line_position)
-    image.arc(x, y + line_position + radius, radius, radians(270), radians(0))
-    image.line_to(x + radius, line_end_y)
-    image.stroke()
-    draw_line(image, x, y + line_position, x + radius * 2, y + line_position)
+    context.move_to(x, y + line_position)
+    context.arc(x, y + line_position + radius, radius, radians(270), radians(0))
+    context.line_to(x + radius, line_end_y)
+    context.stroke()
+    draw_line(context, x, y + line_position, x + radius * 2, y + line_position)
     end_x = x + radius * 2 + arrow_width + before + max_width + after + arrow_width 
-    draw_line(image, end_x, y + line_position, end_x + radius * 2, y + line_position)
-    image.move_to(x + width, y + line_position)
-    image.arc_negative(x + width, y + line_position + radius, radius, radians(270), radians(180))
-    image.line_to(x + width - radius, line_end_y)
-    image.stroke()
+    draw_line(context, end_x, y + line_position, end_x + radius * 2, y + line_position)
+    context.move_to(x + width, y + line_position)
+    context.arc_negative(x + width, y + line_position + radius, radius, radians(270), radians(180))
+    context.line_to(x + width - radius, line_end_y)
+    context.stroke()
 
 
 @f(size_functions, rr.Loop)
-def size_of_Loop(image, construct, options):
+def size_of_Loop(context, construct, options):
     component = construct.component
     delimiter = construct.delimiter
-    c_width, c_height, c_line_pos = size_of(image, component, options)
-    d_width, d_height, d_line_pos = size_of(image, delimiter, options)
+    c_width, c_height, c_line_pos = size_of(context, component, options)
+    d_width, d_height, d_line_pos = size_of(context, delimiter, options)
     radius = options.raildraw_loop_radius
     before = options.raildraw_loop_before
     after = options.raildraw_loop_after
@@ -377,11 +378,11 @@ def size_of_Loop(image, construct, options):
 
 
 @f(draw_functions, rr.Loop)
-def draw_Loop(image, x, y, construct, options, forward):
+def draw_Loop(context, x, y, construct, options, forward):
     component = construct.component
     delimiter = construct.delimiter
-    c_width, c_height, c_line_pos = size_of(image, component, options)
-    d_width, d_height, d_line_pos = size_of(image, delimiter, options)
+    c_width, c_height, c_line_pos = size_of(context, component, options)
+    d_width, d_height, d_line_pos = size_of(context, delimiter, options)
     c_arrow = not isinstance(component, rr.Nothing)
     d_arrow = not isinstance(delimiter, rr.Nothing)
     # For now, if the delimiter is Nothing, don't draw the component's arrows
@@ -393,70 +394,69 @@ def draw_Loop(image, x, y, construct, options, forward):
     after = options.raildraw_loop_after
     arrow_width, arrow_height = options.raildraw_size_of_arrow(options)
     d_y = y + c_height + spacing
-    width, height, line_pos = size_of_Loop(image, construct, options)
+    width, height, line_pos = size_of_Loop(context, construct, options)
     max_width = max(c_width, d_width)
     center_x = x + radius * 2 + arrow_width + before + (max_width / 2)
-    draw_line(image, x, y + line_pos, x + radius * 2, y + line_pos)
-    draw_arrow_or_line(image, x + radius * 2, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
-    draw_line(image, x + radius * 2 + arrow_width, y + line_pos, center_x - c_width / 2, y + line_pos)
-    draw(image, center_x - c_width / 2, y, component, options, forward)
-    draw_line(image, center_x + c_width / 2, y + line_pos, x + width - radius * 2 - arrow_width, y + line_pos)
-    draw_arrow_or_line(image, x + width - radius * 2 - arrow_width, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
-    draw_line(image, x + width - radius * 2, y + line_pos, x + width, y + line_pos)
+    draw_line(context, x, y + line_pos, x + radius * 2, y + line_pos)
+    draw_arrow_or_line(context, x + radius * 2, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
+    draw_line(context, x + radius * 2 + arrow_width, y + line_pos, center_x - c_width / 2, y + line_pos)
+    draw(context, center_x - c_width / 2, y, component, options, forward)
+    draw_line(context, center_x + c_width / 2, y + line_pos, x + width - radius * 2 - arrow_width, y + line_pos)
+    draw_arrow_or_line(context, x + width - radius * 2 - arrow_width, y + line_pos - arrow_height / 2, arrow_width, arrow_height, options, forward, c_arrow)
+    draw_line(context, x + width - radius * 2, y + line_pos, x + width, y + line_pos)
     # Component and its two arrows and line drawn. Now draw the curve down and
     # the delimiter, and its arrows and lines.
-    image.move_to(x + radius * 2, y + line_pos)
-    image.arc_negative(x + radius * 2, y + line_pos + radius, radius, radians(270), radians(180))
-    image.line_to(x + radius, d_y + d_line_pos - radius)
-    image.arc_negative(x + radius * 2, d_y + d_line_pos - radius, radius, radians(180), radians(90))
-    image.stroke()
-    draw_arrow_or_line(image, x + radius * 2, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
-    draw_line(image, x + radius * 2 + arrow_width, d_y + d_line_pos, center_x - d_width / 2, d_y + d_line_pos)
-    draw(image, center_x - d_width / 2, d_y, delimiter, options, not forward)
-    draw_line(image, center_x + d_width / 2, d_y + d_line_pos, x + width - radius * 2 - arrow_width, d_y + d_line_pos)
-    draw_arrow_or_line(image, x + width - radius * 2 - arrow_width, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
-    image.move_to(x + width - radius * 2, d_y + d_line_pos)
-    image.arc_negative(x + width - radius * 2, d_y + d_line_pos - radius, radius, radians(90), radians(0))
-    image.line_to(x + width - radius, y + line_pos + radius)
-    image.arc_negative(x + width - radius * 2, y + line_pos + radius, radius, radians(0), radians(270))
-    image.stroke()
+    context.move_to(x + radius * 2, y + line_pos)
+    context.arc_negative(x + radius * 2, y + line_pos + radius, radius, radians(270), radians(180))
+    context.line_to(x + radius, d_y + d_line_pos - radius)
+    context.arc_negative(x + radius * 2, d_y + d_line_pos - radius, radius, radians(180), radians(90))
+    context.stroke()
+    draw_arrow_or_line(context, x + radius * 2, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
+    draw_line(context, x + radius * 2 + arrow_width, d_y + d_line_pos, center_x - d_width / 2, d_y + d_line_pos)
+    draw(context, center_x - d_width / 2, d_y, delimiter, options, not forward)
+    draw_line(context, center_x + d_width / 2, d_y + d_line_pos, x + width - radius * 2 - arrow_width, d_y + d_line_pos)
+    draw_arrow_or_line(context, x + width - radius * 2 - arrow_width, d_y + d_line_pos - arrow_height / 2, arrow_width, arrow_height, options, not forward, d_arrow)
+    context.move_to(x + width - radius * 2, d_y + d_line_pos)
+    context.arc_negative(x + width - radius * 2, d_y + d_line_pos - radius, radius, radians(90), radians(0))
+    context.line_to(x + width - radius, y + line_pos + radius)
+    context.arc_negative(x + width - radius * 2, y + line_pos + radius, radius, radians(0), radians(270))
+    context.stroke()
 
 
 # FIXME: Test loops with components and delimiters that have different heights
 # and different line positions
 
 
-def draw_arrow_or_line(image, x, y, arrow_width, arrow_height, options, forward, arrow):
+def draw_arrow_or_line(context, x, y, arrow_width, arrow_height, options, forward, arrow):
     if arrow:
-        options.raildraw_draw_arrow(image, x, y, options, forward)
+        options.raildraw_draw_arrow(context, x, y, options, forward)
     else:
-        draw_line(image, x, y + arrow_height / 2, x + arrow_width, y + arrow_height / 2)
+        draw_line(context, x, y + arrow_height / 2, x + arrow_width, y + arrow_height / 2)
 
 
 @f(size_functions, rr.Bullet)
-def size_of_Bullet(image, construct, options):
+def size_of_Bullet(context, construct, options):
     diameter = options.raildraw_bullet_radius * 2
     return diameter, diameter, diameter / 2
 
 
 @f(draw_functions, rr.Bullet)
-def draw_Bullet(image, x, y, construct, options, forward):
+def draw_Bullet(context, x, y, construct, options, forward):
     radius = options.raildraw_bullet_radius
-    image.move_to(x + radius * 2, y + radius)
-    image.arc(x + radius, y + radius, radius, radians(0), radians(360))
-    image.stroke()
+    context.move_to(x + radius * 2, y + radius)
+    context.arc(x + radius, y + radius, radius, radians(0), radians(360))
+    context.stroke()
 
 
 del f
 
 
 def draw_text(context, x, y, font, text):
-    pango_context = pangocairo.CairoContext(context)
-    layout = pango_context.create_layout()
-    layout.set_text(text)
+    layout = PangoCairo.create_layout(context)
+    layout.set_text(text, -1)
     layout.set_font_description(font)
     context.move_to(x, y)
-    pango_context.show_layout(layout)
+    PangoCairo.show_layout(context, layout)
     return layout.get_pixel_size()
 
 
