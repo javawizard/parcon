@@ -1475,9 +1475,9 @@ class Keyword(_GRParser):
     
     def do_graph(self, graph):
         graph.add_node(id(self), label="Keyword")
-        graph.add_node(id(self), id(self.parser), label="parser")
+        graph.add_edge(id(self), id(self.parser), label="parser")
         if self.terminator is not None:
-            graph.add_node(id(self), id(self.terminator), label="terminator")
+            graph.add_edge(id(self), id(self.terminator), label="terminator")
         return [self.parser] + [self.terminator] if self.terminator is not None else []
     
     def create_railroad(self, options):
